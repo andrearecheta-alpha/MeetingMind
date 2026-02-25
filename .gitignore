@@ -1,0 +1,75 @@
+# ── Environment & secrets ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Audio files (often large / sensitive) ───────────────────────────────────
+audio/*.mp3
+audio/*.wav
+audio/*.m4a
+audio/*.ogg
+audio/*.flac
+audio/*.aac
+audio/*.mp4
+audio/*.webm
+
+# ── Transcripts & outputs (may contain PII) ──────────────────────────────────
+transcripts/
+outputs/summaries/
+outputs/action_items/
+outputs/reports/
+
+# ── Knowledge base artefacts ─────────────────────────────────────────────────
+data/knowledge_base/
+
+# ── OS artefacts ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE / editor ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Claude Code local settings (permissions; not for public repos) ────────────
+.claude/
+
+# ── Bundled ffmpeg binary (install via winget / brew / apt — see README) ──────
+ffmpeg/
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Model weights (large binaries) ───────────────────────────────────────────
+*.bin
+*.pt
+*.pth
+*.onnx
+*.safetensors

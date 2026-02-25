@@ -1,0 +1,84 @@
+# MeetingMind — Application Settings
+# Copy to settings.toml and adjust. Settings here are overridden by .env values.
+
+# ── App ───────────────────────────────────────────────────────────────────────
+[app]
+name        = "MeetingMind"
+log_level   = "INFO"      # DEBUG | INFO | WARNING | ERROR
+environment = "development"
+
+# ── Privacy ───────────────────────────────────────────────────────────────────
+[privacy]
+# When true: prints a banner at startup and before capture confirming that
+# all audio processing is local and no data leaves this machine.
+privacy_mode = true
+
+# ── Server ────────────────────────────────────────────────────────────────────
+[server]
+host = "0.0.0.0"
+port = 8000
+
+# ── Audio capture (Phase 1) ───────────────────────────────────────────────────
+[audio]
+# Duration of each audio chunk sent to Whisper (seconds).
+# Shorter = lower latency but less context; longer = better accuracy.
+chunk_duration  = 3.0
+
+# PyAudio device index for the microphone. -1 = OS default.
+mic_device_index = -1
+
+# PyAudio device index for WASAPI loopback (system audio). -1 = auto-detect.
+# Set to a specific index if auto-detection picks the wrong device.
+system_device_index = -1
+
+# Target sample rate — must stay at 16000 for Whisper compatibility.
+sample_rate = 16000
+
+# RMS amplitude below this is treated as silence (0.0–1.0 scale).
+silence_threshold = 0.01
+
+# ── Whisper (Phase 1) ─────────────────────────────────────────────────────────
+[whisper]
+# Model size — trade-off between speed and accuracy:
+#   tiny   ~39 M params   fastest, lowest accuracy
+#   base   ~74 M params   good for quick tests
+#   small  ~244 M params  solid accuracy, moderate speed
+#   medium ~769 M params  recommended for meetings  ← default
+#   large  ~1.5 B params  best accuracy, slowest
+model_size = "medium"
+
+# Optional ISO-639-1 language hint (e.g. "en", "fr", "de").
+# Leave empty to let Whisper auto-detect per chunk (adds ~0.5 s per chunk).
+language = ""
+
+# Whisper segments with no_speech_prob above this are discarded.
+no_speech_threshold = 0.80
+
+# ── Transcription (file-based, Phase 0) ──────────────────────────────────────
+[transcription]
+provider    = "whisper-local"
+diarisation = false
+
+# ── LLM analysis (Phase 0) ───────────────────────────────────────────────────
+[llm]
+provider    = "anthropic"
+model       = "claude-sonnet-4-6"
+temperature = 0.2
+max_tokens  = 4096
+
+# ── Embeddings & knowledge base (future) ─────────────────────────────────────
+[embeddings]
+model         = "text-embedding-3-small"
+chunk_size    = 512
+chunk_overlap = 64
+
+[knowledge_base]
+backend = "chroma"   # chroma | faiss | qdrant
+top_k   = 5
+
+# ── File paths ────────────────────────────────────────────────────────────────
+[paths]
+audio       = "audio"
+transcripts = "transcripts"
+outputs     = "outputs"
+kb          = "data/knowledge_base"
