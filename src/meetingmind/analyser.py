@@ -21,10 +21,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+
+from meetingmind._api_key import load_api_key as _load_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -80,38 +81,6 @@ Please analyse the following meeting transcript:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-def _load_api_key() -> str:
-    """
-    Resolve the Anthropic API key.
-
-    Search order:
-    1. ANTHROPIC_API_KEY environment variable (already set in the process)
-    2. .env file in the project root
-
-    Raises:
-        EnvironmentError: No API key could be found.
-    """
-    # Check the live environment first (covers CI, Docker, etc.)
-    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if key:
-        return key
-
-    # Fall back to parsing the .env file directly.
-    env_file = PROJECT_ROOT / ".env"
-    if env_file.exists():
-        for line in env_file.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line.startswith("ANTHROPIC_API_KEY="):
-                key = line.split("=", 1)[1].strip()
-                if key:
-                    return key
-
-    raise EnvironmentError(
-        "ANTHROPIC_API_KEY not found. "
-        "Set it in your .env file or as an environment variable."
-    )
-
 
 def _load_transcript(transcript_path: Path) -> dict:
     """

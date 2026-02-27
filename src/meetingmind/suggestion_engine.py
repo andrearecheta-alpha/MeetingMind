@@ -23,10 +23,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 from pathlib import Path
 from typing import Optional
+
+from meetingmind._api_key import load_api_key as _load_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -52,31 +53,6 @@ _SYSTEM_PROMPT = (
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-def _load_api_key() -> str:
-    """
-    Resolve the Anthropic API key from the environment or .env file.
-
-    Raises:
-        EnvironmentError: No key found in either location.
-    """
-    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if key:
-        return key
-
-    env_file = PROJECT_ROOT / ".env"
-    if env_file.exists():
-        for line in env_file.read_text(encoding="utf-8").splitlines():
-            if line.startswith("ANTHROPIC_API_KEY="):
-                key = line.split("=", 1)[1].strip()
-                if key:
-                    return key
-
-    raise EnvironmentError(
-        "ANTHROPIC_API_KEY not found. "
-        "Set it in your .env file or as an environment variable."
-    )
-
 
 def _parse_suggestions(raw: str) -> list[str]:
     """
@@ -124,6 +100,7 @@ def get_suggestions(
     transcript_snippet: str,
     model: str = "claude-sonnet-4-6",
     context: Optional[str] = None,
+    historical_context: Optional[str] = None,
 ) -> list[str]:
     """
     Generate 3 PM-tailored response suggestions for a meeting moment.
@@ -137,6 +114,9 @@ def get_suggestions(
         model:              Anthropic model ID (default: claude-sonnet-4-6).
         context:            Optional extra context string prepended to the
                             user message (e.g. meeting type, project name).
+        historical_context: Optional formatted history from past meetings
+                            (decisions, risks, commitments). Injected into
+                            the user message to ground suggestions in reality.
 
     Returns:
         A list of exactly 3 suggestion strings.
@@ -158,8 +138,15 @@ def get_suggestions(
             "anthropic package is not installed. Run: pip install anthropic"
         ) from exc
 
-    # Build the user message
+    # Build the user message — historical context first so Claude has it as
+    # ground truth before seeing the current transcript.
     user_parts = []
+    if historical_context:
+        user_parts.append(
+            "Use this meeting history as ground truth when coaching — "
+            "reference specific past decisions, commitments, and risks where relevant:\n\n"
+            + historical_context.strip()
+        )
     if context:
         user_parts.append(f"Meeting context: {context.strip()}")
     user_parts.append(f"Recent transcript:\n\n{transcript_snippet.strip()}")

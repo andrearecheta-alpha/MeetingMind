@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 TARGET_SAMPLE_RATE: int = 16_000
 
 # Default length of each emitted audio chunk in seconds.
-DEFAULT_CHUNK_DURATION: float = 3.0
+DEFAULT_CHUNK_DURATION: float = 1.5
 
 # PyAudio reads this many raw frames per call — small enough for low latency.
 _PA_FRAMES_PER_BUFFER: int = 1_024
@@ -81,7 +81,8 @@ class AudioChunk:
     data:      np.ndarray
     source:    AudioSource
     timestamp: float
-    rms:       float = field(default=0.0)
+    rms:       float = field(default=0.0)   # average RMS over the chunk (for display)
+    peak_rms:  float = field(default=0.0)   # max(|sample|) — used for silence gate
 
 
 # ---------------------------------------------------------------------------
@@ -144,6 +145,11 @@ class AudioCapture:
 
         self._pa:           pyaudio.PyAudio            = pyaudio.PyAudio()
         self._chunk_queue:  queue.Queue[AudioChunk]    = queue.Queue(maxsize=_QUEUE_MAXSIZE)
+        # Separate queue for per-frame RMS (mic-only).  Only the mic stream
+        # writes here; the system audio stream writes only to _chunk_queue.
+        # This guarantees that _rms_broadcast_loop and _transcription_loop
+        # both see the SAME mic signal — no competing-stream signal split.
+        self._rms_queue:    queue.Queue[float]         = queue.Queue(maxsize=50)
         self._running:      bool                       = False
         self._threads:      list[threading.Thread]     = []
 
@@ -286,6 +292,14 @@ class AudioCapture:
         Thread target: opens one PyAudio input stream and pushes AudioChunks
         onto the shared queue at the configured chunk_duration cadence.
 
+        Device-open strategy
+        --------------------
+        Tries *device_index* first.  If that fails and this is the MICROPHONE
+        source, automatically walks through every other available input device
+        as a fallback.  Each attempt is logged clearly so failures are easy to
+        diagnose.  An "access denied" error aborts the fallback immediately —
+        no point trying other devices when Windows has blocked mic access.
+
         Handles:
           - Device's native sample rate → 16 kHz resampling
           - int16 PCM bytes → float32 normalisation
@@ -296,30 +310,81 @@ class AudioCapture:
         """
         chunk_samples = int(self.sample_rate * self.chunk_duration)
 
+        # ── 1. Open a stream (primary device, then fallbacks for mic) ─────────
+        stream:      Optional[object] = None
+        device_name: str              = str(device_index)
+        device_rate: int              = TARGET_SAMPLE_RATE
+        tried_names: list[str]        = []
+
+        candidates: list[Optional[int]] = [device_index]
+        if source == AudioSource.MICROPHONE:
+            for dev in self.list_devices():
+                idx = dev["index"]
+                if idx != device_index:
+                    candidates.append(idx)
+
+        for i, candidate in enumerate(candidates):
+            cand_name = str(candidate)
+            try:
+                if candidate is not None:
+                    info = self._pa.get_device_info_by_index(candidate)
+                else:
+                    info = self._pa.get_default_input_device_info()
+                cand_name = str(info.get("name", cand_name))
+                cand_rate = int(info.get("defaultSampleRate", TARGET_SAMPLE_RATE))
+            except Exception as exc:
+                tried_names.append(cand_name)
+                logger.debug("Cannot query device %s: %s", candidate, exc)
+                continue
+
+            if i > 0:
+                logger.warning(
+                    "FALLBACK: Trying %s device '%s' (index %s) instead",
+                    source.value, cand_name, candidate,
+                )
+
+            try:
+                _stream = self._pa.open(
+                    format=_PA_FORMAT,
+                    channels=_PA_CHANNELS,
+                    rate=cand_rate,
+                    input=True,
+                    input_device_index=candidate,
+                    frames_per_buffer=_PA_FRAMES_PER_BUFFER,
+                )
+                stream      = _stream
+                device_name = cand_name
+                device_rate = cand_rate
+                logger.info(
+                    "Audio stream open — source: %s | device: '%s' (index %s) | rate: %d Hz",
+                    source.value, device_name, candidate, device_rate,
+                )
+                break  # success
+
+            except OSError as exc:
+                tried_names.append(cand_name)
+                logger.error(
+                    "ERROR: Failed to open %s device '%s' (index %s): %s",
+                    source.value, cand_name, candidate, exc,
+                )
+                if any(x in str(exc).lower() for x in ["access denied", "-9999", "-9997"]):
+                    logger.error(
+                        "  → Windows mic access may be blocked. "
+                        "Check Settings → Privacy & Security → Microphone → "
+                        "Allow apps to access your microphone"
+                    )
+                    break  # Permission error — fallbacks won't help
+
+        if stream is None:
+            logger.error(
+                "No working %s device found. Tried: %s\n"
+                "  → Check mic permissions and that the device is not in use by another app.",
+                source.value, tried_names or [str(device_index)],
+            )
+            return
+
+        # ── 2. Run the capture loop ───────────────────────────────────────────
         try:
-            # Resolve device info (fall back to OS default if index is None)
-            if device_index is not None:
-                device_info = self._pa.get_device_info_by_index(device_index)
-            else:
-                device_info = self._pa.get_default_input_device_info()
-
-            device_rate: int = int(device_info["defaultSampleRate"])
-            device_name: str = device_info["name"]
-
-            stream = self._pa.open(
-                format=_PA_FORMAT,
-                channels=_PA_CHANNELS,
-                rate=device_rate,
-                input=True,
-                input_device_index=device_index,
-                frames_per_buffer=_PA_FRAMES_PER_BUFFER,
-            )
-
-            logger.info(
-                "Audio stream open — source: %s | device: '%s' | native rate: %d Hz",
-                source.value, device_name, device_rate,
-            )
-
             buffer:           np.ndarray = np.zeros(0, dtype=np.float32)
             chunk_start_time: float      = time.time()
 
@@ -335,6 +400,22 @@ class AudioCapture:
                 # Convert: int16 bytes → float32 → resample to 16 kHz
                 samples = self._to_float32(raw)
                 samples = self._resample(samples, device_rate, self.sample_rate)
+
+                # Fan out per-frame RMS to the RMS queue — MIC ONLY.
+                # System audio must NOT write here; if it did, it would
+                # overwrite the mic signal and cause the UI meter and the
+                # silence gate to see different audio (the original bug).
+                if source == AudioSource.MICROPHONE:
+                    frame_rms = float(np.sqrt(np.mean(samples.astype(np.float64) ** 2)))
+                    try:
+                        self._rms_queue.put_nowait(frame_rms)
+                    except queue.Full:
+                        try:
+                            self._rms_queue.get_nowait()   # drop oldest
+                        except queue.Empty:
+                            pass
+                        self._rms_queue.put_nowait(frame_rms)
+
                 buffer  = np.concatenate([buffer, samples])
 
                 # Emit as many complete chunks as the buffer holds
@@ -347,6 +428,7 @@ class AudioCapture:
                         source=source,
                         timestamp=chunk_start_time,
                         rms=self._rms(chunk_data),
+                        peak_rms=float(np.max(np.abs(chunk_data))),
                     )
 
                     # Non-blocking put; drop oldest if queue is full
@@ -361,22 +443,58 @@ class AudioCapture:
 
                     chunk_start_time = time.time()
 
-            stream.stop_stream()
-            stream.close()
-            logger.info("Audio stream closed — source: %s", source.value)
-
-        except OSError as exc:
-            logger.error(
-                "Failed to open %s stream: %s\n"
-                "  Check that the device is connected and not in use by another app.",
-                source.value, exc,
-            )
         except Exception as exc:
             logger.exception(
                 "Unexpected error in %s stream worker: %s", source.value, exc
             )
+        finally:
+            try:
+                stream.stop_stream()
+                stream.close()
+            except Exception:
+                pass
+            logger.info("Audio stream closed — source: %s", source.value)
 
     # ── Public interface ──────────────────────────────────────────────────────
+
+    def probe_device(self, device_index: Optional[int]) -> tuple[bool, str, str]:
+        """
+        Briefly open and immediately close a device stream to verify it works.
+
+        Call this (via asyncio.to_thread) before starting the full capture loop
+        to give the API layer a chance to return a clear error instead of
+        silently capturing nothing.
+
+        Returns:
+            (success, device_name, error_message).
+            On success, error_message is "".
+            On failure, error_message contains the OSError description.
+        """
+        name = f"device:{device_index}"
+        try:
+            if device_index is not None:
+                info = self._pa.get_device_info_by_index(device_index)
+            else:
+                info = self._pa.get_default_input_device_info()
+            name = str(info.get("name", name))
+            rate = int(info.get("defaultSampleRate", TARGET_SAMPLE_RATE))
+            stream = self._pa.open(
+                format=_PA_FORMAT,
+                channels=_PA_CHANNELS,
+                rate=rate,
+                input=True,
+                input_device_index=device_index,
+                frames_per_buffer=_PA_FRAMES_PER_BUFFER,
+            )
+            stream.stop_stream()
+            stream.close()
+            logger.info("Device probe OK: '%s' (index %s)", name, device_index)
+            return True, name, ""
+        except Exception as exc:
+            logger.warning(
+                "Device probe FAILED: '%s' (index %s): %s", name, device_index, exc
+            )
+            return False, name, str(exc)
 
     def start(self) -> None:
         """
@@ -412,8 +530,12 @@ class AudioCapture:
         mic_thread.start()
 
         # ── System audio via WASAPI loopback ─────────────────────────────────
-        if self.system_device_index is None:
-            self.system_device_index = self.find_wasapi_loopback()
+        # System audio is OPT-IN only — never auto-detected here.
+        # Auto-detection (find_wasapi_loopback) was the original bug: it
+        # opened a second stream that competed with the mic, splitting the
+        # signal so both streams got ~half the audio.  The server layer
+        # (meeting_start) is responsible for resolving the device index and
+        # passing it explicitly; if it passes None, we run mic-only mode.
 
         if self.system_device_index is not None:
             sys_thread = threading.Thread(
@@ -462,3 +584,21 @@ class AudioCapture:
         self.stop()
         self._pa.terminate()
         logger.info("PyAudio terminated.")
+
+    def get_latest_rms(self) -> float:
+        """
+        Return the most recent mic per-frame RMS. Non-blocking.
+
+        Drains the entire _rms_queue and returns the last value so the
+        caller always sees the freshest reading.  Returns 0.0 if no mic
+        data has arrived yet.
+
+        Safe to call from any thread (queue.Queue is thread-safe).
+        """
+        rms = 0.0
+        try:
+            while True:
+                rms = self._rms_queue.get_nowait()
+        except queue.Empty:
+            pass
+        return rms

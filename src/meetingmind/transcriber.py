@@ -278,16 +278,27 @@ def transcribe(
 # Streaming / real-time transcription  (Phase 1 — audio engine)
 # ---------------------------------------------------------------------------
 
-# Chunks whose RMS energy is below this threshold are treated as silence and
-# skipped before Whisper is invoked, saving CPU on quiet periods.
+# Silence gate — filters chunks before Whisper to save CPU on quiet periods.
 #
-# Calibration guide (float32 scale after int16 normalisation):
-#   0.0002  ≈ -74 dBFS — permissive: passes faint/far speech, laptop mics
-#   0.001   ≈ -60 dBFS — strict: filters quiet mics on many laptops (old default)
-#   0.01    ≈ -40 dBFS — very strict: only loud, close-mic speech passes
+# We use PEAK amplitude (max|sample|) rather than average RMS because a
+# 1.5-second chunk that is 1.4 s of silence + 0.1 s of speech still has
+# very low average RMS but a clearly detectable peak.  Using peak ensures
+# any chunk containing a single word gets through to Whisper.
 #
-# If /debug shows chunks_filtered > 90 % of chunks_from_queue, lower this value.
-_SILENCE_RMS_THRESHOLD: float = 0.0002
+# Calibration guide (float32 scale, samples normalised to [-1, 1]):
+#   peak = max(|sample|) over the chunk window
+#   Speech peak is typically 0.01 – 0.5 even at moderate mic volumes.
+#   Electrical noise floor is typically < 0.001.
+#
+#   0.001 → recommended: passes any audible sound, filters noise floor
+#   0.005 → stricter: requires a bit louder speech
+#
+# If chunks_filtered > 50 % in /debug, lower this value.
+# If too much noise hallucination, raise it.
+_SILENCE_PEAK_THRESHOLD: float = 0.001
+
+# Kept for reference — no longer used for the silence gate.
+_SILENCE_RMS_THRESHOLD: float = 0.00005
 
 # Whisper segments whose no-speech probability exceeds this are discarded.
 _NO_SPEECH_PROB_THRESHOLD: float = 0.80
@@ -408,10 +419,12 @@ class StreamingTranscriber:
             TranscriptChunk, or None if the chunk should be discarded.
         """
         # ── 1. Fast silence gate (avoids loading Whisper for quiet periods) ──
-        if chunk.rms < _SILENCE_RMS_THRESHOLD:
+        # Use peak amplitude: a 1.5 s chunk with 0.1 s of speech still has
+        # low average RMS but a detectable peak — peak gate passes it through.
+        if chunk.peak_rms < _SILENCE_PEAK_THRESHOLD:
             logger.info(
-                "GATE  silent  rms=%.4f < threshold=%.3f  source=%s",
-                chunk.rms, _SILENCE_RMS_THRESHOLD, chunk.source.value,
+                "GATE  silent  peak=%.5f < threshold=%.3f  avg_rms=%.5f  source=%s",
+                chunk.peak_rms, _SILENCE_PEAK_THRESHOLD, chunk.rms, chunk.source.value,
             )
             return None
 
@@ -419,11 +432,20 @@ class StreamingTranscriber:
         try:
             # chunk.data is float32, mono, 16 kHz — exactly what Whisper expects.
             # fp16=False ensures CPU compatibility (GPU would use fp16 by default).
-            kwargs: dict = {"verbose": False, "fp16": False}
-            if self._language:
-                kwargs["language"] = self._language
+            kwargs: dict = {
+                "verbose":  False,
+                "fp16":     False,           # required for CPU inference
+                "language": self._language or "en",   # default English; skips language-detection overhead
+            }
 
             result: dict = self._model.transcribe(chunk.data, **kwargs)
+            logger.info(
+                "WHISPER  raw=%r  segments=%d  source=%s  rms=%.5f",
+                result.get("text", "")[:80],
+                len(result.get("segments", [])),
+                chunk.source.value,
+                chunk.rms,
+            )
 
         except Exception as exc:
             logger.error("Whisper inference error: %s", exc)
