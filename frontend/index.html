@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MeetingMind — PM Edition</title>
+  <title>MeetingMind — Live Transcription</title>
   <style>
-    /* ── Reset & base ───────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -31,112 +30,54 @@
       z-index: 100;
     }
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-    }
-
+    .logo { display: flex; align-items: center; gap: 0.6rem; }
     .logo-icon {
-      width: 26px;
-      height: 26px;
+      width: 26px; height: 26px;
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
       border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       font-size: 13px;
     }
-
     .logo-text { font-size: 0.95rem; font-weight: 600; color: #f1f5f9; }
 
-    .logo-badge {
-      font-size: 0.62rem;
-      background: #6366f1;
-      color: white;
-      padding: 2px 7px;
-      border-radius: 99px;
-      font-weight: 600;
-      letter-spacing: 0.03em;
-    }
-
     /* ── Status pill ─────────────────────────────────────────────────────── */
-    .status-pill {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.75rem;
-      color: #94a3b8;
-    }
-
+    .status-pill { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: #94a3b8; }
     .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
+      width: 7px; height: 7px; border-radius: 50%;
       background: #475569;
       transition: background 0.3s, box-shadow 0.3s;
-      flex-shrink: 0;
     }
-
-    .status-dot.connecting { background: #94a3b8; animation: pulse-dot 1.4s ease-in-out infinite; }
-    .status-dot.connected  { background: #3b82f6; }
-    .status-dot.live       { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+    .status-dot.connecting  { background: #94a3b8; animation: pulse-dot 1.4s ease-in-out infinite; }
+    .status-dot.connected   { background: #3b82f6; }
+    .status-dot.live        { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
     .status-dot.error,
     .status-dot.disconnected { background: #ef4444; }
 
     #btn-reconnect {
-      background: none;
-      border: 1px solid #334155;
-      color: #94a3b8;
-      font-size: 0.68rem;
-      font-weight: 600;
-      padding: 0.15rem 0.5rem;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.15s;
-      display: none;
+      background: none; border: 1px solid #334155; color: #94a3b8;
+      font-size: 0.68rem; font-weight: 600; padding: 0.15rem 0.5rem;
+      border-radius: 4px; cursor: pointer; transition: all 0.15s; display: none;
     }
     #btn-reconnect:hover { color: #e2e8f0; border-color: #6366f1; }
 
-    /* ── Layout ─────────────────────────────────────────────────────────── */
+    /* ── Layout ──────────────────────────────────────────────────────────── */
     main {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1fr 340px;
-      grid-template-rows: auto 1fr;
-      gap: 0;
-      max-height: calc(100vh - 52px);
-      overflow: hidden;
+      flex: 1; display: flex; flex-direction: column;
+      max-height: calc(100vh - 52px); overflow: hidden;
     }
 
-    /* ── Controls bar ───────────────────────────────────────────────────── */
+    /* ── Controls bar ────────────────────────────────────────────────────── */
     .controls {
-      grid-column: 1 / -1;
-      background: #1a1d27;
-      border-bottom: 1px solid #2d3148;
-      padding: 0.6rem 2rem;
-      display: flex;
-      align-items: center;
-      gap: 0.8rem;
-      flex-wrap: nowrap;
+      background: #1a1d27; border-bottom: 1px solid #2d3148;
+      padding: 0.6rem 2rem; display: flex; align-items: center;
+      gap: 0.8rem; flex-wrap: wrap;
     }
-
-    .ctrl-sep {
-      width: 1px;
-      height: 20px;
-      background: #2d3148;
-      flex-shrink: 0;
-    }
+    .ctrl-sep { width: 1px; height: 20px; background: #2d3148; flex-shrink: 0; }
 
     button {
-      cursor: pointer;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 0.42rem 1rem;
-      transition: all 0.15s;
-      white-space: nowrap;
+      cursor: pointer; border: none; border-radius: 6px;
+      font-size: 0.78rem; font-weight: 600;
+      padding: 0.42rem 1rem; transition: all 0.15s; white-space: nowrap;
     }
 
     #btn-start { background: #6366f1; color: white; }
@@ -151,327 +92,38 @@
     button:disabled { opacity: 0.38; cursor: not-allowed; }
 
     .ctrl-label {
-      font-size: 0.7rem;
-      font-weight: 600;
-      color: #475569;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      white-space: nowrap;
-      flex-shrink: 0;
+      font-size: 0.7rem; font-weight: 600; color: #475569;
+      letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
     }
-
-    .device-wrap { position: relative; flex-shrink: 0; }
 
     select.ctrl-select {
-      background: #0d0f18;
-      border: 1px solid #2d3148;
-      color: #cbd5e1;
-      border-radius: 6px;
-      padding: 0.38rem 0.65rem;
-      font-size: 0.78rem;
-      max-width: 220px;
-      cursor: pointer;
-      transition: border-color 0.15s;
-      appearance: auto;
+      background: #0d0f18; border: 1px solid #2d3148; color: #cbd5e1;
+      border-radius: 6px; padding: 0.38rem 0.65rem; font-size: 0.78rem;
+      max-width: 220px; cursor: pointer; transition: border-color 0.15s; appearance: auto;
     }
-    select.ctrl-select:hover  { border-color: #475569; }
-    select.ctrl-select:focus  { outline: none; border-color: #6366f1; }
+    select.ctrl-select:hover { border-color: #475569; }
+    select.ctrl-select:focus { outline: none; border-color: #6366f1; }
     select.ctrl-select option { background: #1a1d27; color: #e2e8f0; }
-    select.ctrl-select optgroup { background: #0f1117; color: #475569; font-style: normal; font-size: 0.72rem; }
-
-    .inline-warn {
-      position: absolute;
-      top: calc(100% + 2px);
-      left: 0;
-      font-size: 0.68rem;
-      color: #f59e0b;
-      white-space: nowrap;
-      display: none;
-      z-index: 10;
-      background: #1a1d27;
-      border: 1px solid #451a03;
-      border-radius: 4px;
-      padding: 2px 6px;
-    }
 
     .elapsed {
-      margin-left: auto;
-      font-size: 0.73rem;
-      color: #475569;
-      font-variant-numeric: tabular-nums;
-      font-weight: 600;
-      letter-spacing: 0.03em;
-      flex-shrink: 0;
+      margin-left: auto; font-size: 0.73rem; color: #475569;
+      font-variant-numeric: tabular-nums; font-weight: 600; flex-shrink: 0;
     }
 
-    /* ── Warning banner — compact single row ────────────────────────────── */
-    #warning-banner {
-      grid-column: 1 / -1;
-      background: #160f00;
-      border-bottom: 1px solid #3d2000;
-      padding: 0 2rem;
-      font-size: 0.73rem;
-      color: #d97706;
-      display: none;
-      flex-direction: column;
-    }
-
-    .warn-row {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.28rem 0;
-      min-height: 28px;
-    }
-
-    .warn-icon { flex-shrink: 0; font-size: 0.8rem; }
-
-    #warn-summary {
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    #btn-warn-toggle {
-      background: none;
-      border: none;
-      color: #92400e;
-      font-size: 0.68rem;
-      padding: 0.1rem 0.4rem;
-      border-radius: 4px;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: color 0.15s;
-    }
-    #btn-warn-toggle:hover { color: #d97706; }
-
-    #warn-details {
-      display: none;
-      padding: 0.3rem 0 0.4rem 1.4rem;
-      border-top: 1px solid #3d2000;
-    }
-    #warn-details ul { list-style: disc; padding-left: 0.5rem; }
-    #warn-details li { margin: 0.15rem 0; line-height: 1.5; color: #b45309; }
-
-    /* ── Error banner ───────────────────────────────────────────────────── */
+    /* ── Error banner ────────────────────────────────────────────────────── */
     .error-banner {
-      grid-column: 1 / -1;
-      background: #200d0d;
-      border-bottom: 1px solid #7f1d1d;
-      padding: 0.45rem 2rem;
-      font-size: 0.78rem;
-      color: #fca5a5;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
+      background: #200d0d; border-bottom: 1px solid #7f1d1d;
+      padding: 0.45rem 2rem; font-size: 0.78rem; color: #fca5a5;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
     }
-    .error-banner button {
-      background: none;
-      color: #fca5a5;
-      font-size: 0.85rem;
-      padding: 0 0.3rem;
-      flex-shrink: 0;
-    }
+    .error-banner button { background: none; color: #fca5a5; font-size: 0.85rem; padding: 0 0.3rem; }
     .error-banner button:hover { color: #fff; }
 
-    /* ── Transcript pane ────────────────────────────────────────────────── */
-    .transcript-pane {
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid #1e2235;
-      overflow: hidden;
-    }
-
-    .pane-header {
-      padding: 0.65rem 1.5rem;
-      font-size: 0.67rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #334155;
-      border-bottom: 1px solid #1a1d27;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .clear-btn {
-      background: none;
-      color: #334155;
-      font-size: 0.67rem;
-      padding: 0.15rem 0.45rem;
-      border-radius: 4px;
-    }
-    .clear-btn:hover { color: #64748b; background: #1e2235; }
-
-    #transcript-feed {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0.9rem 1.4rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.45rem;
-      scroll-behavior: smooth;
-    }
-
-    .transcript-chunk {
-      background: #14172280;
-      border: 1px solid #1e2235;
-      border-radius: 8px;
-      padding: 0.55rem 0.85rem;
-      animation: fadeIn 0.2s ease;
-    }
-
-    .transcript-chunk .chunk-meta {
-      display: flex;
-      align-items: center;
-      gap: 0.45rem;
-      margin-bottom: 0.28rem;
-    }
-
-    .speaker-tag {
-      font-size: 0.65rem;
-      font-weight: 700;
-      padding: 1px 6px;
-      border-radius: 3px;
-      letter-spacing: 0.04em;
-    }
-    .speaker-tag.microphone { background: #172554; color: #60a5fa; }
-    .speaker-tag.system     { background: #052e16; color: #4ade80; }
-
-    .chunk-time {
-      font-size: 0.62rem;
-      color: #334155;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .confidence-bar {
-      margin-left: auto;
-      width: 32px;
-      height: 2px;
-      background: #1e2235;
-      border-radius: 99px;
-      overflow: hidden;
-    }
-
-    .confidence-bar-fill {
-      height: 100%;
-      background: #4f46e5;
-      border-radius: 99px;
-    }
-
-    .chunk-text {
-      font-size: 0.85rem;
-      line-height: 1.55;
-      color: #cbd5e1;
-    }
-
-    .placeholder-text {
-      color: #1e2235;
-      font-size: 0.82rem;
-      text-align: center;
-      margin: auto;
-      padding: 2rem;
-      line-height: 1.8;
-    }
-    .placeholder-text strong { color: #2d3148; display: block; margin-bottom: 0.5rem; font-size: 0.88rem; }
-
-    /* ── Suggestions pane ───────────────────────────────────────────────── */
-    .suggestions-pane {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    #suggestions-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0.9rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.55rem;
-    }
-
-    .suggestion-card {
-      background: #14172280;
-      border: 1px solid #1e2235;
-      border-left: 3px solid #4f46e5;
-      border-radius: 8px;
-      padding: 0.7rem 0.85rem;
-      font-size: 0.81rem;
-      line-height: 1.55;
-      color: #94a3b8;
-      cursor: pointer;
-      transition: all 0.15s;
-      animation: fadeIn 0.2s ease;
-    }
-    .suggestion-card:hover {
-      border-left-color: #818cf8;
-      background: #1a1d27;
-      color: #e2e8f0;
-    }
-    .suggestion-card .suggestion-num {
-      font-size: 0.6rem;
-      color: #4f46e5;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      margin-bottom: 0.3rem;
-    }
-
-    .suggest-btn {
-      background: #12142080;
-      border: 1px solid #1e2235;
-      border-top: 1px solid #1e2235;
-      color: #4f46e5;
-      font-size: 0.75rem;
-      padding: 0.55rem 1rem;
-      border-radius: 0;
-      width: 100%;
-      transition: all 0.15s;
-    }
-    .suggest-btn:hover:not(:disabled) {
-      background: #4f46e5;
-      color: white;
-    }
-
-    .suggestions-placeholder {
-      color: #1e2235;
-      font-size: 0.78rem;
-      text-align: center;
-      padding: 1.5rem 1rem;
-      line-height: 1.8;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 13px;
-      height: 13px;
-      border: 2px solid #1e2235;
-      border-top-color: #6366f1;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 0.35rem;
-    }
-
-    /* ── Animations ─────────────────────────────────────────────────────── */
-    @keyframes fadeIn    { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-    @keyframes spin      { to { transform: rotate(360deg); } }
-    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
-
-    /* ── RMS level meter ────────────────────────────────────────────────── */
+    /* ── RMS meter ───────────────────────────────────────────────────────── */
     #rms-meter-wrap {
-      grid-column: 1 / -1;
-      display: none;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 3px 2rem;
-      background: #0d0f18;
-      border-bottom: 1px solid #1e2235;
-      font-size: 0.68rem;
-      color: #475569;
+      display: none; align-items: center; gap: 0.5rem;
+      padding: 3px 2rem; background: #0d0f18;
+      border-bottom: 1px solid #1e2235; font-size: 0.68rem; color: #475569;
     }
     .rms-label { flex-shrink: 0; font-weight: 600; letter-spacing: 0.05em; }
     .rms-track {
@@ -488,11 +140,67 @@
       width: 2px; background: #f59e0b; border-radius: 1px;
     }
     .rms-value { font-variant-numeric: tabular-nums; min-width: 4rem; text-align: right; }
-    .rms-stats { font-variant-numeric: tabular-nums; min-width: 11rem; text-align: right; color: #334155; letter-spacing: 0.03em; }
-    .rms-stats.active { color: #475569; }
+    .rms-stats {
+      font-variant-numeric: tabular-nums; min-width: 11rem;
+      text-align: right; color: #334155; letter-spacing: 0.03em;
+    }
+    .rms-stats.active       { color: #475569; }
     .rms-stats.transcribing { color: #4ade80; }
 
-    /* ── Scrollbar ──────────────────────────────────────────────────────── */
+    /* ── Transcript pane ─────────────────────────────────────────────────── */
+    .transcript-pane { display: flex; flex-direction: column; overflow: hidden; flex: 1; }
+
+    .pane-header {
+      padding: 0.65rem 1.5rem; font-size: 0.67rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #334155;
+      border-bottom: 1px solid #1a1d27;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .clear-btn { background: none; color: #334155; font-size: 0.67rem; padding: 0.15rem 0.45rem; border-radius: 4px; }
+    .clear-btn:hover { color: #64748b; background: #1e2235; }
+
+    #transcript-feed {
+      flex: 1; overflow-y: auto; padding: 0.9rem 1.4rem;
+      display: flex; flex-direction: column; gap: 0.45rem; scroll-behavior: smooth;
+    }
+
+    .transcript-chunk {
+      background: #14172280; border: 1px solid #1e2235;
+      border-radius: 8px; padding: 0.55rem 0.85rem;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .chunk-meta { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.28rem; }
+
+    .speaker-tag {
+      font-size: 0.65rem; font-weight: 700; padding: 1px 6px;
+      border-radius: 3px; letter-spacing: 0.04em;
+    }
+    .speaker-tag.microphone { background: #172554; color: #60a5fa; }
+    .speaker-tag.system     { background: #052e16; color: #4ade80; }
+
+    .chunk-time { font-size: 0.62rem; color: #334155; font-variant-numeric: tabular-nums; }
+
+    .confidence-bar {
+      margin-left: auto; width: 32px; height: 2px;
+      background: #1e2235; border-radius: 99px; overflow: hidden;
+    }
+    .confidence-bar-fill { height: 100%; background: #4f46e5; border-radius: 99px; }
+
+    .chunk-text { font-size: 0.85rem; line-height: 1.55; color: #cbd5e1; }
+
+    .placeholder-text {
+      color: #1e2235; font-size: 0.82rem; text-align: center;
+      margin: auto; padding: 2rem; line-height: 1.8;
+    }
+    .placeholder-text strong { color: #2d3148; display: block; margin-bottom: 0.5rem; font-size: 0.88rem; }
+
+    /* ── Animations ──────────────────────────────────────────────────────── */
+    @keyframes fadeIn    { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────────── */
     ::-webkit-scrollbar       { width: 3px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #1e2235; border-radius: 4px; }
@@ -500,24 +208,21 @@
 </head>
 <body>
 
-<!-- ── Header ──────────────────────────────────────────────────────────── -->
 <header>
   <div class="logo">
     <div class="logo-icon">🧠</div>
     <span class="logo-text">MeetingMind</span>
-    <span class="logo-badge">PM Edition</span>
   </div>
   <div class="status-pill">
     <div class="status-dot connecting" id="status-dot"></div>
     <span id="status-label">Connecting…</span>
-    <button id="btn-reconnect" onclick="reconnectWS()" title="Reconnect WebSocket">↺ Reconnect</button>
+    <button id="btn-reconnect" onclick="reconnectWS()">↺ Reconnect</button>
   </div>
 </header>
 
-<!-- ── Main layout ─────────────────────────────────────────────────────── -->
 <main>
 
-  <!-- ── Controls bar ─────────────────────────────────────────────────── -->
+  <!-- Controls bar -->
   <div class="controls">
     <button id="btn-start">▶ Start</button>
     <button id="btn-stop" disabled>■ Stop</button>
@@ -526,35 +231,24 @@
     <div class="ctrl-sep"></div>
 
     <span class="ctrl-label">Mic</span>
-    <div class="device-wrap">
-      <select class="ctrl-select" id="mic-select" title="Select microphone">
-        <option value="">OS Default</option>
-      </select>
-      <div class="inline-warn" id="mic-virtual-warning">⚠ Virtual mic — may capture silence</div>
-    </div>
-
-    <span class="ctrl-label">System</span>
-    <div class="device-wrap">
-      <select class="ctrl-select" id="system-select" title="System audio loopback (optional)">
-        <option value="">None</option>
-      </select>
-      <div class="inline-warn" id="sys-virtual-warning">⚠ Virtual device</div>
-    </div>
+    <select class="ctrl-select" id="mic-select">
+      <option value="">OS Default</option>
+    </select>
 
     <div class="ctrl-sep"></div>
 
     <span class="ctrl-label">Model</span>
     <select class="ctrl-select" id="model-select">
-      <option value="base" selected>base — real-time, ~5s load (recommended)</option>
-      <option value="small">small — better accuracy, ~12s load</option>
-      <option value="medium">medium — best accuracy, ~60s load</option>
-      <option value="large">large — most accurate, ~100s load</option>
+      <option value="base" selected>base — real-time (~5s load)</option>
+      <option value="small">small — better accuracy (~12s load)</option>
+      <option value="medium">medium — best accuracy (~60s load)</option>
+      <option value="large">large — most accurate (~100s load)</option>
     </select>
 
     <span class="elapsed" id="elapsed"></span>
   </div>
 
-  <!-- ── RMS level meter ─────────────────────────────────────────────────── -->
+  <!-- RMS level meter -->
   <div id="rms-meter-wrap">
     <span class="rms-label">MIC</span>
     <div class="rms-track">
@@ -565,25 +259,13 @@
     <span class="rms-stats" id="rms-stats"></span>
   </div>
 
-  <!-- ── Compact warning banner ─────────────────────────────────────────── -->
-  <div id="warning-banner">
-    <div class="warn-row">
-      <span class="warn-icon">⚠</span>
-      <span id="warn-summary"></span>
-      <button id="btn-warn-toggle" onclick="toggleWarnDetails()">Details ▾</button>
-    </div>
-    <div id="warn-details">
-      <ul id="warning-list"></ul>
-    </div>
-  </div>
-
-  <!-- ── Error banner ──────────────────────────────────────────────────── -->
+  <!-- Error banner -->
   <div id="error-banner" class="error-banner" style="display:none">
     <span id="error-text"></span>
-    <button onclick="clearError()" title="Dismiss">✕</button>
+    <button onclick="clearError()">✕</button>
   </div>
 
-  <!-- ── Transcript feed ──────────────────────────────────────────────── -->
+  <!-- Live transcript -->
   <div class="transcript-pane">
     <div class="pane-header">
       Live Transcript
@@ -598,134 +280,62 @@
     </div>
   </div>
 
-  <!-- ── Suggestions panel ─────────────────────────────────────────────── -->
-  <div class="suggestions-pane">
-    <div class="pane-header">PM Suggestions</div>
-    <div id="suggestions-list">
-      <div class="suggestions-placeholder">
-        Start your meeting, then click<br>
-        <strong>Get Suggestions</strong> to generate<br>
-        3 ready-to-use PM responses.
-      </div>
-    </div>
-    <button class="suggest-btn" id="btn-suggest" onclick="getSuggestions()" disabled>
-      ✦ Get PM Suggestions
-    </button>
-  </div>
-
 </main>
 
 <script>
-  // ── State ────────────────────────────────────────────────────────────────
-  let ws                   = null;
-  let wsReconnectTimer     = null;
-  let meetingActive        = false;
-  let elapsedSecs          = 0;
-  let elapsedTimer         = null;
-  let transcriptBuffer     = [];
-  let warnDetailsOpen      = false;
-  let allDevices           = [];   // cached for inline-warn check
-  let rmsWatchdogTimer     = null; // fires if no RMS data for 3 s during a meeting
+  // ── State ─────────────────────────────────────────────────────────────────
+  let ws                    = null;
+  let wsReconnectTimer      = null;
+  let meetingActive         = false;
+  let elapsedSecs           = 0;
+  let elapsedTimer          = null;
+  let rmsWatchdogTimer      = null;
   let loadingCountdownTimer = null;
-  let loadingModel          = null;
 
   const MODEL_LOAD_SECS = { tiny: 3, base: 5, small: 12, medium: 55, large: 100 };
-
-  const MAX_BUFFER_CHUNKS = 10;
 
   const API    = `${location.protocol}//${location.host}`;
   const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/transcribe`;
 
-  // ── DOM refs ─────────────────────────────────────────────────────────────
-  const feed           = document.getElementById('transcript-feed');
-  const suggList       = document.getElementById('suggestions-list');
-  const btnStart       = document.getElementById('btn-start');
-  const btnStop        = document.getElementById('btn-stop');
-  const btnSuggest     = document.getElementById('btn-suggest');
-  const btnReconnect   = document.getElementById('btn-reconnect');
-  const statusDot      = document.getElementById('status-dot');
-  const statusLabel    = document.getElementById('status-label');
-  const elapsedEl      = document.getElementById('elapsed');
-  const modelSel       = document.getElementById('model-select');
-  const micSel         = document.getElementById('mic-select');
-  const systemSel      = document.getElementById('system-select');
-  const errorBanner    = document.getElementById('error-banner');
-  const errorText      = document.getElementById('error-text');
-  const warningBanner  = document.getElementById('warning-banner');
-  const warnSummaryEl  = document.getElementById('warn-summary');
-  const warnDetailsEl  = document.getElementById('warn-details');
-  const warningList    = document.getElementById('warning-list');
-  const micVirtualWarn = document.getElementById('mic-virtual-warning');
-  const sysVirtualWarn = document.getElementById('sys-virtual-warning');
+  // ── DOM refs ──────────────────────────────────────────────────────────────
+  const feed         = document.getElementById('transcript-feed');
+  const btnStart     = document.getElementById('btn-start');
+  const btnStop      = document.getElementById('btn-stop');
+  const statusDot    = document.getElementById('status-dot');
+  const statusLabel  = document.getElementById('status-label');
+  const elapsedEl    = document.getElementById('elapsed');
+  const modelSel     = document.getElementById('model-select');
+  const micSel       = document.getElementById('mic-select');
+  const errorBanner  = document.getElementById('error-banner');
+  const errorText    = document.getElementById('error-text');
+  const rmsMeterWrap = document.getElementById('rms-meter-wrap');
 
-  // ── Error banner ──────────────────────────────────────────────────────────
-  function showError(msg) {
-    errorText.textContent = msg;
-    errorBanner.style.display = 'flex';
-  }
-  function clearError() {
-    errorBanner.style.display = 'none';
-    errorText.textContent = '';
-  }
-
-  // ── Warning banner ────────────────────────────────────────────────────────
-  function showWarnings(warnings, virtualMics) {
-    if (!warnings || !warnings.length) return;
-
-    // Build compact single-line summary
-    const uniqueNames = [...new Set(virtualMics.map(d => d.name))];
-    const nameStr = uniqueNames.length === 1
-      ? uniqueNames[0]
-      : uniqueNames.slice(0, 2).join(', ') + (uniqueNames.length > 2 ? ` +${uniqueNames.length - 2} more` : '');
-    const totalInstances = virtualMics.reduce((n, d) => n + (d.duplicate_count || 1), 0);
-    const countStr = totalInstances > uniqueNames.length
-      ? `${totalInstances} virtual mic instances`
-      : `${uniqueNames.length} virtual mic${uniqueNames.length > 1 ? 's' : ''}`;
-
-    warnSummaryEl.textContent =
-      `${countStr} detected (${nameStr}) — not recommended for recording`;
-
-    // Populate expandable details
-    warningList.innerHTML = '';
-    warnings.forEach(w => {
-      const li = document.createElement('li');
-      li.textContent = w;
-      warningList.appendChild(li);
-    });
-
-    warningBanner.style.display = 'flex';
-  }
-
-  function toggleWarnDetails() {
-    warnDetailsOpen = !warnDetailsOpen;
-    warnDetailsEl.style.display = warnDetailsOpen ? 'block' : 'none';
-    document.getElementById('btn-warn-toggle').textContent =
-      warnDetailsOpen ? 'Hide ▲' : 'Details ▾';
-  }
+  // ── Error ─────────────────────────────────────────────────────────────────
+  function showError(msg) { errorText.textContent = msg; errorBanner.style.display = 'flex'; }
+  function clearError()   { errorBanner.style.display = 'none'; errorText.textContent = ''; }
 
   // ── Status ────────────────────────────────────────────────────────────────
   function setStatus(state) {
-    const states = {
-      connecting:   { dot: 'connecting',  label: 'Connecting…',             reconnect: false },
-      connected:    { dot: 'connected',   label: 'Connected',                reconnect: false },
-      loading:      { dot: 'connecting',  label: '◌ Loading Whisper model…', reconnect: false },
-      live:         { dot: 'live',        label: '● Live',                   reconnect: false },
-      idle:         { dot: 'connected',   label: 'Connected',                reconnect: false },
-      disconnected: { dot: 'disconnected',label: 'Disconnected',             reconnect: true  },
-      error:        { dot: 'error',       label: 'Connection error',         reconnect: true  },
+    const map = {
+      connecting:   ['connecting',   'Connecting…'],
+      connected:    ['connected',    'Connected'],
+      loading:      ['connecting',   '◌ Loading Whisper…'],
+      live:         ['live',         '● Live'],
+      disconnected: ['disconnected', 'Disconnected'],
+      error:        ['error',        'Connection error'],
     };
-    const s = states[state] || { dot: '', label: state, reconnect: false };
-    statusDot.className          = `status-dot ${s.dot}`;
-    statusLabel.textContent      = s.label;
-    btnReconnect.style.display   = s.reconnect ? 'inline-flex' : 'none';
+    const [dot, label] = map[state] || ['', state];
+    statusDot.className     = `status-dot ${dot}`;
+    statusLabel.textContent = label;
+    document.getElementById('btn-reconnect').style.display =
+      (state === 'disconnected' || state === 'error') ? 'inline-flex' : 'none';
   }
 
-  // ── WebSocket (auto-connect on load, stays open across start/stop) ────────
+  // ── WebSocket ─────────────────────────────────────────────────────────────
   function connectWebSocket() {
-    if (ws && ws.readyState <= WebSocket.OPEN) return;  // already open or connecting
+    if (ws && ws.readyState <= WebSocket.OPEN) return;
     clearTimeout(wsReconnectTimer);
     setStatus('connecting');
-
     ws = new WebSocket(WS_URL);
 
     ws.onopen = () => {
@@ -745,40 +355,25 @@
       if (msg.type === 'model_ready') {
         stopLoadingCountdown();
         if (meetingActive) setStatus('live');
-        clearPlaceholder();
-        // Brief visual confirmation that Whisper is ready
         const note = document.createElement('div');
-        note.className = 'placeholder-text';
-        note.style.cssText = 'color:#4ade80;font-size:0.75rem;padding:0.5rem 1.4rem;';
-        note.textContent = `✓ Whisper '${msg.model}' ready — speak to begin transcription`;
+        note.style.cssText = 'color:#4ade80;font-size:0.75rem;padding:0.4rem 0;';
+        note.textContent = `✓ Whisper '${msg.model}' ready — speak to begin`;
+        clearPlaceholder();
         feed.appendChild(note);
         feed.scrollTop = feed.scrollHeight;
         setTimeout(() => note.remove(), 4000);
         return;
       }
-      if (msg.type === 'error') {
-        showError('Pipeline: ' + msg.message);
-        return;
-      }
-      if (msg.type === 'ingestion_complete') {
-        // KB ingestion finished — future: update history panel
-        return;
-      }
+      if (msg.type === 'error') { showError('Pipeline: ' + msg.message); return; }
 
-      // Transcript chunk (explicit type or legacy no-type)
-      if (msg.type === 'transcript' || msg.text !== undefined) {
-        appendChunk(msg);
-        transcriptBuffer.push(msg.text);
-        if (transcriptBuffer.length > MAX_BUFFER_CHUNKS) transcriptBuffer.shift();
-      }
+      // Transcript chunk
+      if (msg.text !== undefined) appendChunk(msg);
     };
 
     ws.onerror = () => setStatus('error');
-
     ws.onclose = () => {
       ws = null;
       setStatus('disconnected');
-      // Auto-retry every 6 s so a server restart reconnects automatically
       wsReconnectTimer = setTimeout(connectWebSocket, 6000);
     };
   }
@@ -794,188 +389,56 @@
     stopLoadingCountdown();
     const est = MODEL_LOAD_SECS[model] || 20;
     let secsLeft = est;
-    function tick() {
-      const suffix = secsLeft > 0 ? ` (~${secsLeft}s)` : '…';
-      statusLabel.textContent = `◌ Loading Whisper ${model}${suffix}`;
-      if (secsLeft > 0) secsLeft--;
-    }
+    const tick = () => {
+      statusLabel.textContent = `◌ Loading Whisper ${model} (~${Math.max(0, secsLeft)}s)`;
+      secsLeft--;
+    };
     tick();
     loadingCountdownTimer = setInterval(tick, 1000);
   }
-
   function stopLoadingCountdown() {
     clearInterval(loadingCountdownTimer);
     loadingCountdownTimer = null;
   }
 
-  // ── Device dropdown population ────────────────────────────────────────────
-  function truncate(s, max) {
-    return s.length > max ? s.slice(0, max - 1) + '…' : s;
-  }
+  // ── Device dropdown ───────────────────────────────────────────────────────
+  async function loadDevices() {
+    try {
+      const res = await fetch(`${API}/devices`);
+      if (!res.ok) return;
+      const { devices } = await res.json();
+      if (!devices || !devices.length) return;
 
-  function populateDeviceDropdowns(data) {
-    if (!data || !Array.isArray(data.all_devices)) {
-      console.error('populateDeviceDropdowns: unexpected shape', data);
-      return;
-    }
-    const { recommended_mic, recommended_system, all_devices, warnings } = data;
-    allDevices = all_devices;
-
-    const realMics    = all_devices.filter(d => d.category === 'REAL_MIC');
-    const virtualMics = all_devices.filter(d => d.category === 'VIRTUAL_MIC');
-    const systemAudio = all_devices.filter(d => d.category === 'SYSTEM_AUDIO');
-
-    // ── Show compact warning banner ────────────────────────────────────────
-    showWarnings(warnings, virtualMics);
-
-    // ── Mic dropdown ──────────────────────────────────────────────────────
-    micSel.innerHTML = '<option value="">OS Default</option>';
-
-    if (realMics.length) {
-      const grp = document.createElement('optgroup');
-      grp.label = 'YOUR MICROPHONE';
-      realMics.forEach(d => {
-        const isRec = recommended_mic && d.index === recommended_mic.index;
-        const wasapi = d.duplicate_count > 1 && d.host_api.includes('WASAPI');
-        const opt   = document.createElement('option');
-        opt.value   = d.index;
-        opt.title   = `${d.host_api} | Score ${d.score}/10` +
-                      (d.duplicate_count > 1 ? ` | ${d.duplicate_count} host-API versions merged` : '');
-        opt.textContent = (isRec ? '✅ ' : '   ') +
-                          truncate(d.name, 32) +
-                          (wasapi ? ' (WASAPI)' : '');
-        if (isRec) opt.selected = true;
-        grp.appendChild(opt);
-      });
-      micSel.appendChild(grp);
-    }
-
-    if (systemAudio.length) {
-      const grp = document.createElement('optgroup');
-      grp.label = 'SYSTEM AUDIO';
-      systemAudio.forEach(d => {
-        const wasapi = d.duplicate_count > 1 && d.host_api.includes('WASAPI');
-        const opt   = document.createElement('option');
-        opt.value   = d.index;
-        opt.title   = `${d.host_api} | Score ${d.score}/10`;
-        opt.textContent = '   ' + truncate(d.name, 32) + (wasapi ? ' (WASAPI)' : '');
-        grp.appendChild(opt);
-      });
-      micSel.appendChild(grp);
-    }
-
-    if (virtualMics.length) {
-      const grp = document.createElement('optgroup');
-      grp.label = 'VIRTUAL — USE WITH CAUTION';
-      virtualMics.forEach(d => {
-        const countSuffix = d.duplicate_count > 1 ? ` ×${d.duplicate_count}` : '';
+      micSel.innerHTML = '<option value="">OS Default</option>';
+      devices.forEach(d => {
         const opt = document.createElement('option');
         opt.value = d.index;
-        opt.title = `${d.host_api} | ${d.duplicate_count > 1 ? d.duplicate_count + ' instances merged' : 'virtual mic'}`;
-        opt.textContent = '⚠ ' + truncate(d.name, 30) + countSuffix;
-        grp.appendChild(opt);
+        opt.textContent = `[${d.index}] ${d.name.slice(0, 40)}`;
+        if (d.is_default) opt.selected = true;
+        micSel.appendChild(opt);
       });
-      micSel.appendChild(grp);
+    } catch (err) {
+      console.warn('Device fetch failed:', err);
     }
-
-    // ── System audio dropdown ─────────────────────────────────────────────
-    systemSel.innerHTML = '<option value="">None</option>';
-
-    if (systemAudio.length) {
-      const grp = document.createElement('optgroup');
-      grp.label = 'SYSTEM AUDIO';
-      systemAudio.forEach(d => {
-        const isRec = recommended_system && d.index === recommended_system.index;
-        const wasapi = d.duplicate_count > 1 && d.host_api.includes('WASAPI');
-        const opt   = document.createElement('option');
-        opt.value   = d.index;
-        opt.title   = `${d.host_api} | Score ${d.score}/10`;
-        opt.textContent = (isRec ? '✅ ' : '   ') +
-                          truncate(d.name, 32) +
-                          (wasapi ? ' (WASAPI)' : '');
-        if (isRec) opt.selected = true;
-        grp.appendChild(opt);
-      });
-      systemSel.appendChild(grp);
-    }
-
-    if (virtualMics.length) {
-      const grp = document.createElement('optgroup');
-      grp.label = 'VIRTUAL';
-      virtualMics.forEach(d => {
-        const countSuffix = d.duplicate_count > 1 ? ` ×${d.duplicate_count}` : '';
-        const opt = document.createElement('option');
-        opt.value = d.index;
-        opt.title = `${d.host_api}${d.duplicate_count > 1 ? ' | ' + d.duplicate_count + ' instances merged' : ''}`;
-        opt.textContent = '⚠ ' + truncate(d.name, 30) + countSuffix;
-        grp.appendChild(opt);
-      });
-      systemSel.appendChild(grp);
-    }
-
-    // ── Inline virtual warning on selection change ─────────────────────────
-    function checkVirtual(sel, warnEl) {
-      const dev = allDevices.find(d => String(d.index) === sel.value);
-      warnEl.style.display = (dev && dev.category === 'VIRTUAL_MIC') ? 'block' : 'none';
-    }
-    micSel.addEventListener('change', () => checkVirtual(micSel, micVirtualWarn));
-    systemSel.addEventListener('change', () => checkVirtual(systemSel, sysVirtualWarn));
-    checkVirtual(micSel, micVirtualWarn);
-    checkVirtual(systemSel, sysVirtualWarn);
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
   async function init() {
-    // 0. Clear any stale meeting state from a previous session
     try { await fetch(`${API}/meeting/reset`, { method: 'POST' }); } catch (_) {}
-
-    // 1. Open WS connection immediately (auto-connect)
     connectWebSocket();
+    await loadDevices();
 
-    // 2. Load device list
-    try {
-      const res = await fetch(`${API}/devices`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.all_devices)) {
-          populateDeviceDropdowns(data);
-        } else if (data.devices) {
-          showError(
-            'Server is running old code — restart uvicorn to enable smart device detection.'
-          );
-        }
-      }
-    } catch (err) {
-      console.warn('Device fetch failed:', err);
-    }
-
-    // 3. Sync with server meeting state + check Windows mic permission
     try {
       const res = await fetch(`${API}/health`);
       if (!res.ok) return;
       const data = await res.json();
-      if (data.windows_mic_blocked) {
-        showError(
-          '⚠ Windows microphone access may be blocked. ' +
-          'Check Settings → Privacy & Security → Microphone → ' +
-          'Allow apps to access your microphone, then restart the server.'
-        );
-      }
       if (data.meeting_active) {
-        meetingActive = true;
-        if (!data.windows_mic_blocked) {
-          showError(
-            'Server has an active meeting from a previous session. ' +
-            'Click Stop to end it or Start to begin a new one.'
-          );
-        }
-        btnStart.disabled   = true;
-        btnStop.disabled    = false;
-        btnSuggest.disabled = false;
-        modelSel.disabled   = true;
-        micSel.disabled     = true;
-        systemSel.disabled  = true;
-        document.getElementById('rms-meter-wrap').style.display = 'flex';
+        meetingActive              = true;
+        btnStart.disabled          = true;
+        btnStop.disabled           = false;
+        modelSel.disabled          = true;
+        micSel.disabled            = true;
+        rmsMeterWrap.style.display = 'flex';
         setStatus(data.model_loading ? 'loading' : 'live');
       }
     } catch (_) {}
@@ -984,67 +447,53 @@
   // ── Meeting controls ──────────────────────────────────────────────────────
   async function startMeeting() {
     clearError();
-
-    // ── Optimistic UI: apply immediately on click, before server responds ──
-    btnStart.disabled    = true;
-    btnStart.textContent = '◌ Starting…';
-    btnStop.disabled     = false;      // Stop is always usable once Start is clicked
-    btnSuggest.disabled  = false;
-    modelSel.disabled    = true;
-    micSel.disabled      = true;
-    systemSel.disabled   = true;
-    document.getElementById('rms-meter-wrap').style.display = 'flex';  // show meter immediately
+    btnStart.disabled          = true;
+    btnStart.textContent       = '◌ Starting…';
+    btnStop.disabled           = false;
+    modelSel.disabled          = true;
+    micSel.disabled            = true;
+    rmsMeterWrap.style.display = 'flex';
 
     const model  = modelSel.value;
     const micIdx = micSel.value;
-    const sysIdx = systemSel.value;
     let url = `${API}/meeting/start?model_size=${model}`;
     if (micIdx) url += `&mic_device_index=${micIdx}`;
-    if (sysIdx) url += `&system_device_index=${sysIdx}`;
 
     try {
       const res = await fetch(url, { method: 'POST' });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        const hint = err.suggestion ? `\n${err.suggestion}` : '';
+        const err  = await res.json().catch(() => ({}));
+        const hint = err.suggestion ? ` — ${err.suggestion}` : '';
         showError(`Failed to start: ${err.error || res.statusText}${hint}`);
-        // Revert all button state on failure
-        btnStart.disabled    = false;
-        btnStart.textContent = '▶ Start';
-        btnStop.disabled     = true;
-        btnSuggest.disabled  = true;
-        modelSel.disabled    = false;
-        micSel.disabled      = false;
-        systemSel.disabled   = false;
-        document.getElementById('rms-meter-wrap').style.display = 'none';
+        btnStart.disabled          = false;
+        btnStart.textContent       = '▶ Start';
+        btnStop.disabled           = true;
+        modelSel.disabled          = false;
+        micSel.disabled            = false;
+        rmsMeterWrap.style.display = 'none';
         return;
       }
     } catch (e) {
       showError('Server unreachable — is uvicorn running?');
-      btnStart.disabled    = false;
-      btnStart.textContent = '▶ Start';
-      btnStop.disabled     = true;
-      btnSuggest.disabled  = true;
-      modelSel.disabled    = false;
-      micSel.disabled      = false;
-      systemSel.disabled   = false;
-      document.getElementById('rms-meter-wrap').style.display = 'none';
+      btnStart.disabled          = false;
+      btnStart.textContent       = '▶ Start';
+      btnStop.disabled           = true;
+      modelSel.disabled          = false;
+      micSel.disabled            = false;
+      rmsMeterWrap.style.display = 'none';
       return;
     }
 
-    // Server responded — audio is live, Whisper is loading in background
     meetingActive        = true;
     btnStart.textContent = '▶ Start';
     elapsedSecs          = 0;
-    elapsedTimer         = setInterval(() => {
+    elapsedTimer = setInterval(() => {
       elapsedSecs++;
       const m = String(Math.floor(elapsedSecs / 60)).padStart(2, '0');
       const s = String(elapsedSecs % 60).padStart(2, '0');
       elapsedEl.textContent = `${m}:${s}`;
     }, 1000);
 
-    // WS is already connected from init(); status = "loading" until model_ready arrives
-    loadingModel = model;
     if (ws && ws.readyState === WebSocket.OPEN) {
       setStatus('loading');
       startLoadingCountdown(model);
@@ -1059,27 +508,17 @@
     stopLoadingCountdown();
     meetingActive = false;
 
-    // Fire-and-forget — server cancels audio + any in-progress model load
     fetch(`${API}/meeting/stop`, { method: 'POST' }).catch(() => {});
 
-    btnStart.disabled     = false;
-    btnStart.textContent  = '▶ Start';
-    btnStop.disabled      = true;
-    btnSuggest.disabled   = true;
-    modelSel.disabled     = false;
-    micSel.disabled       = false;
-    systemSel.disabled    = false;
-    elapsedEl.textContent = '';
-    document.getElementById('rms-meter-wrap').style.display = 'none';
+    btnStart.disabled             = false;
+    btnStart.textContent          = '▶ Start';
+    btnStop.disabled              = true;
+    modelSel.disabled             = false;
+    micSel.disabled               = false;
+    elapsedEl.textContent         = '';
+    rmsMeterWrap.style.display    = 'none';
     document.getElementById('rms-stats').textContent = '';
-    document.getElementById('rms-stats').className = 'rms-stats';
-
-    // Keep WS open — just update status to 'connected'
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      setStatus('connected');
-    } else {
-      setStatus('disconnected');
-    }
+    setStatus(ws && ws.readyState === WebSocket.OPEN ? 'connected' : 'disconnected');
   }
 
   async function resetMeeting() {
@@ -1090,23 +529,15 @@
 
     try { await fetch(`${API}/meeting/reset`, { method: 'POST' }); } catch (_) {}
 
-    btnStart.disabled     = false;
-    btnStart.textContent  = '▶ Start';
-    btnStop.disabled      = true;
-    btnSuggest.disabled   = true;
-    modelSel.disabled     = false;
-    micSel.disabled       = false;
-    systemSel.disabled    = false;
-    elapsedEl.textContent = '';
-    document.getElementById('rms-meter-wrap').style.display = 'none';
+    btnStart.disabled             = false;
+    btnStart.textContent          = '▶ Start';
+    btnStop.disabled              = true;
+    modelSel.disabled             = false;
+    micSel.disabled               = false;
+    elapsedEl.textContent         = '';
+    rmsMeterWrap.style.display    = 'none';
     document.getElementById('rms-stats').textContent = '';
-    document.getElementById('rms-stats').className = 'rms-stats';
-
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      setStatus('connected');
-    } else {
-      setStatus('disconnected');
-    }
+    setStatus(ws && ws.readyState === WebSocket.OPEN ? 'connected' : 'disconnected');
   }
 
   // ── Transcript rendering ──────────────────────────────────────────────────
@@ -1117,20 +548,20 @@
 
   function appendChunk(chunk) {
     clearPlaceholder();
-    const time    = new Date(chunk.timestamp * 1000).toLocaleTimeString();
+    const t       = new Date(chunk.timestamp * 1000).toLocaleTimeString();
     const conf    = Math.round((chunk.confidence || 0) * 100);
     const src     = chunk.source || 'microphone';
-    const speaker = chunk.speaker || (src === 'microphone' ? 'You' : 'Them');
+    const speaker = src === 'microphone' ? 'You' : 'Them';
     const tooltip = src === 'microphone'
       ? 'Your microphone'
-      : 'Them = audio from Zoom / Teams / Meet playing through speakers';
+      : 'Them = remote audio playing through your speakers';
 
     const el = document.createElement('div');
     el.className = 'transcript-chunk';
     el.innerHTML = `
       <div class="chunk-meta">
         <span class="speaker-tag ${escHtml(src)}" title="${escHtml(tooltip)}">[${escHtml(speaker)}]</span>
-        <span class="chunk-time">${time}</span>
+        <span class="chunk-time">${t}</span>
         <div class="confidence-bar" title="Confidence: ${conf}%">
           <div class="confidence-bar-fill" style="width:${conf}%"></div>
         </div>
@@ -1141,71 +572,18 @@
     feed.scrollTop = feed.scrollHeight;
   }
 
-  function clearTranscript() {
-    feed.innerHTML = '';
-    transcriptBuffer = [];
-  }
-
-  // ── PM Suggestions ────────────────────────────────────────────────────────
-  async function getSuggestions() {
-    if (!transcriptBuffer.length) {
-      showError('No transcript yet — start your meeting and speak first.');
-      return;
-    }
-    suggList.innerHTML = `<div class="suggestions-placeholder">
-      <span class="spinner"></span> Generating PM suggestions…
-    </div>`;
-    btnSuggest.disabled = true;
-
-    try {
-      const res = await fetch(`${API}/suggestions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: transcriptBuffer.join(' ') }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || err.error || res.statusText);
-      }
-      renderSuggestions((await res.json()).suggestions);
-    } catch (e) {
-      suggList.innerHTML = `<div class="suggestions-placeholder" style="color:#ef4444">
-        Error: ${escHtml(e.message)}
-      </div>`;
-    } finally {
-      btnSuggest.disabled = false;
-    }
-  }
-
-  function renderSuggestions(suggestions) {
-    suggList.innerHTML = '';
-    suggestions.forEach((text, i) => {
-      const card = document.createElement('div');
-      card.className = 'suggestion-card';
-      card.title = 'Click to copy';
-      card.innerHTML = `<div class="suggestion-num">SUGGESTION ${i + 1}</div>${escHtml(text)}`;
-      card.onclick = () => {
-        navigator.clipboard.writeText(text).catch(() => {});
-        card.style.borderLeftColor = '#22c55e';
-        setTimeout(() => { card.style.borderLeftColor = ''; }, 1500);
-      };
-      suggList.appendChild(card);
-    });
-  }
+  function clearTranscript() { feed.innerHTML = ''; }
 
   // ── RMS meter ─────────────────────────────────────────────────────────────
   function updateRmsMeter(rms, threshold, captured, passed) {
-    // Reset the 3-second "signal lost" watchdog
     clearTimeout(rmsWatchdogTimer);
     if (meetingActive) {
       rmsWatchdogTimer = setTimeout(() => {
         document.getElementById('rms-value').textContent = '⚠ signal lost';
         document.getElementById('rms-fill').style.width = '0%';
-        document.getElementById('rms-fill').classList.add('silent');
       }, 3000);
     }
 
-    // dBFS scale: [-80, 0] → [0%, 100%]
     const db    = 20 * Math.log10(Math.max(rms, 1e-9));
     const pct   = Math.max(0, Math.min(100, (80 + db) / 80 * 100));
     const thDb  = 20 * Math.log10(Math.max(threshold, 1e-9));
@@ -1216,19 +594,12 @@
     document.getElementById('rms-threshold-line').style.left = thPct + '%';
     document.getElementById('rms-value').textContent = rms < 0.00001 ? '—' : rms.toFixed(5);
 
-    // Pipeline stats
     if (captured !== undefined) {
       const statsEl = document.getElementById('rms-stats');
-      if (passed > 0) {
-        statsEl.textContent = `${captured} captured · ${passed} transcribed`;
-        statsEl.className   = 'rms-stats transcribing';
-      } else if (captured > 0) {
-        statsEl.textContent = `${captured} captured · 0 transcribed`;
-        statsEl.className   = 'rms-stats active';
-      } else {
-        statsEl.textContent = '';
-        statsEl.className   = 'rms-stats';
-      }
+      statsEl.textContent = passed > 0
+        ? `${captured} captured · ${passed} transcribed`
+        : captured > 0 ? `${captured} captured · 0 transcribed` : '';
+      statsEl.className = `rms-stats ${passed > 0 ? 'transcribing' : captured > 0 ? 'active' : ''}`;
     }
   }
 
@@ -1239,7 +610,7 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // ── Button wiring & boot ──────────────────────────────────────────────────
+  // ── Boot ──────────────────────────────────────────────────────────────────
   btnStart.addEventListener('click', startMeeting);
   btnStop.addEventListener('click',  stopMeeting);
   document.getElementById('btn-reset').addEventListener('click', resetMeeting);

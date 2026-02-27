@@ -1,165 +1,98 @@
-# MeetingMind — PM Edition
+# MeetingMind
 
-A real-time meeting assistant built for **Project Managers**.
-MeetingMind listens to your meetings, produces live transcripts on-device,
-and surfaces instant AI-generated response suggestions tailored to PM topics:
-sprint planning, stakeholder updates, risk management, resource allocation,
-delivery timelines, scope changes, budget tracking, and team performance.
-
----
+Real-time meeting transcription.
+Privacy-first — runs 100% on your device.
 
 ## Features
 
-### Live in Sprint 1
-- [x] **Local transcription** — Whisper runs on-device; audio never leaves your machine
-- [x] **Real-time WebSocket stream** — transcript chunks broadcast to any browser tab
-- [x] **Dual-source capture** — microphone + system audio (Zoom/Teams/Meet via WASAPI loopback)
-- [x] **PM response suggestions** — Claude generates 3 ready-to-use responses per transcript moment
-- [x] **PM Edition UI** — dark-theme web dashboard with live transcript feed and suggestion panel
-- [x] **Auto tone detection** — suggestions adapt to formal / semi-formal / casual meeting tone
-- [x] **AI meeting analysis** — post-meeting summaries and action-item extraction via Claude
+- **Live transcription** via OpenAI Whisper (runs locally)
+- **Speaker identification** — [You] / [Them] labels on every chunk
+- **Privacy-first** — audio never leaves your machine
+- **Works with any microphone** — auto-detects your default input
+- **Mobile accessible** — open the UI from any device on your network
+- **RMS level meter** — real-time audio feedback so you know the mic is live
+- **Whisper model selector** — choose speed vs. accuracy (tiny → large)
 
-### Roadmap (Sprint 2+)
-- [ ] Speaker diarisation — label who is speaking per chunk
-- [ ] System audio — WASAPI loopback / VB-Cable for richer Zoom/Teams capture
-- [ ] Auto-analyse on stop — run Claude analysis automatically when meeting ends
-- [ ] Knowledge base — ChromaDB indexing of all transcripts for Q&A
-- [ ] Query interface — ask natural-language questions across your meeting history
-- [ ] Export — Markdown, PDF, and structured JSON reports
+## Tech Stack
 
----
+Python · FastAPI · Whisper · WebSocket · PyAudio
 
-## Quick Start (PM Edition)
+## Quick Start
 
-### 1. Install dependencies
 ```bash
+# 1. Clone the repo
+git clone https://github.com/andrearecheta-alpha/MeetingMind.git
+cd MeetingMind
+
+# 2. Install dependencies
 pip install -r requirements.txt
-# Also install ffmpeg (used by Whisper for audio decoding):
-# Windows:  winget install ffmpeg --accept-source-agreements --accept-package-agreements
-# Mac:      brew install ffmpeg
-# Linux:    sudo apt install ffmpeg
-```
 
-### 2. Configure your API key
-```bash
+# 3. Copy environment template
 cp .env.example .env
-# Edit .env — add your Anthropic API key:
-# ANTHROPIC_API_KEY=sk-ant-...
+
+# 4. Start the server
+python -m uvicorn meetingmind.main:app --host 0.0.0.0 --port 8000
+
+# 5. Open in your browser
+# http://localhost:8000
 ```
 
-### 3. Start the server
+### Windows shortcut
+
+If you installed the `mmstart` CLI entry point:
+
 ```powershell
-cd C:\Users\andre\Projects\MeetingMind
-$env:PYTHONPATH="src"; python -m uvicorn meetingmind.main:app --host 0.0.0.0 --port 8000
+mmstart
 ```
 
-### 4. Open the PM dashboard
-Open `frontend/index.html` in your browser, then click **Start Meeting**.
+## Usage
 
-### 5. Get live suggestions
-As your meeting progresses, click **Get PM Suggestions** in the right panel to generate
-3 Claude-powered response options tailored to the last 60 seconds of transcript.
+1. Open `http://localhost:8000` in your browser
+2. Select your microphone from the dropdown (or leave as OS Default)
+3. Choose a Whisper model size (base is recommended for real-time use)
+4. Click **Start** — audio is captured immediately, transcript appears once Whisper loads
+5. Click **Stop** when the meeting ends
+6. Use **Reset** if the server gets stuck in an active state
 
----
+## Whisper Model Guide
 
-## Architecture Overview
+| Model  | Load time | Accuracy | Real-time? |
+|--------|-----------|----------|------------|
+| tiny   | ~2s       | Low      | Yes        |
+| base   | ~5s       | Good     | Yes        |
+| small  | ~12s      | Better   | Yes        |
+| medium | ~60s      | High     | Marginal   |
+| large  | ~100s     | Best     | No         |
 
-```
-Microphone ──┐
-             ├──► AudioCapture ──► StreamingTranscriber (Whisper, local)
-System audio ┘         │
-                        ▼
-              FastAPI + WebSocket  /ws/transcribe
-                        │
-          ┌─────────────┴──────────────┐
-          ▼                            ▼
-  frontend/index.html          POST /suggestions
-  (live transcript feed)    ──► suggestion_engine.py
-  (PM suggestion panel)         (Claude API, PM prompt)
-```
+The `base` model is the default and works well for clear speech in English.
 
-Full pipeline diagram: [docs/architecture.md](docs/architecture.md)
+## Privacy
 
----
-
-## Project Structure
-
-```
-MeetingMind/
-├── frontend/
-│   └── index.html              # PM Edition web dashboard
-├── src/meetingmind/
-│   ├── audio_capture.py        # Mic + system audio capture
-│   ├── transcriber.py          # Whisper file + streaming transcription
-│   ├── suggestion_engine.py    # Claude PM response suggestions
-│   ├── analyser.py             # Post-meeting Claude analysis
-│   ├── main.py                 # FastAPI server + WebSocket engine
-│   └── cli.py                  # CLI: transcribe / analyse commands
-├── tests/
-│   └── test_audio_engine.py    # 17 passing tests
-├── audio/                      # Drop audio files here (gitignored)
-├── transcripts/                # Whisper output JSON (gitignored)
-├── outputs/
-│   ├── summaries/              # Claude summary Markdown (gitignored)
-│   └── action_items/           # Claude action items (gitignored)
-├── data/knowledge_base/        # ChromaDB vector store — future phase
-├── docs/                       # Architecture diagrams, sprint notes
-└── config/
-    └── settings.example.toml  # All configuration options documented
-```
-
----
-
-## CLI — File-Based Pipeline
-
-No server needed for offline analysis:
-
-```bash
-# Transcribe an audio file locally with Whisper
-python -m meetingmind transcribe audio/my_meeting.mp3
-
-# Use a more accurate model (downloads once, then cached at ~/.cache/whisper/):
-python -m meetingmind transcribe audio/my_meeting.mp3 --model small
-
-# Specify language to skip auto-detection:
-python -m meetingmind transcribe audio/my_meeting.mp3 --model base --language en
-
-# Analyse a saved transcript with Claude (summaries + action items)
-python -m meetingmind analyse transcripts/my_meeting_20260225_103045UTC.json
-```
-
----
-
-## API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Server status + meeting state |
-| `POST` | `/meeting/start` | Begin audio capture and transcription |
-| `POST` | `/meeting/stop` | End capture, release resources |
-| `POST` | `/suggestions` | Generate 3 PM response suggestions from transcript |
-| `WS` | `/ws/transcribe` | Real-time transcript stream |
-
----
+- Audio is processed entirely on your machine
+- Whisper runs locally — no audio is sent to any cloud service
+- The WebSocket stream carries transcript text only
+- No telemetry, no analytics, no external API calls for transcription
 
 ## Requirements
 
 - Python 3.11+
-- [ffmpeg](https://ffmpeg.org/download.html) on your `PATH`
-- Anthropic API key ([console.anthropic.com](https://console.anthropic.com))
-- See `requirements.txt` for Python package versions
+- A working microphone
+- ~500 MB disk space for the `base` Whisper model (downloaded once, then cached)
+- Windows / macOS / Linux
 
----
+## Troubleshooting
 
-## Privacy
+**"No working microphone found"**
+- Windows: Settings → Privacy & Security → Microphone → Allow apps to access your microphone
+- Try selecting a specific device from the Mic dropdown instead of OS Default
 
-- **Audio processing** is entirely local — Whisper runs on your machine
-- **Transcript text** is sent to the Anthropic API over HTTPS only when you request suggestions or analysis
-- **No audio bytes** are ever transmitted over the network
-- See [SECURITY.md](SECURITY.md) for the full threat model
+**Transcript not appearing after model loads**
+- Check the RMS meter — if the bar is flat, the mic is silent or muted
+- Open `http://localhost:8000/debug` for a full pipeline diagnostic
 
----
+**Server stuck in "meeting already active"**
+- Click **Reset** in the UI, or visit `http://localhost:8000/meeting/reset`
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE)
