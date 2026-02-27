@@ -76,6 +76,13 @@ chunk_overlap = 64
 backend = "chroma"   # chroma | faiss | qdrant
 top_k   = 5
 
+# ── Token budget ─────────────────────────────────────────────────────────────
+[token_budget]
+max_input_tokens  = 800   # transcript fed to Claude
+max_output_tokens = 120   # Claude response cap
+context_tokens    = 200   # context string budget
+warn_at_percent   = 80    # log warning above this % of budget
+
 # ── File paths ────────────────────────────────────────────────────────────────
 [paths]
 audio       = "audio"

@@ -331,16 +331,15 @@
       margin-bottom: 0.28rem;
     }
 
-    .source-tag {
-      font-size: 0.6rem;
+    .speaker-tag {
+      font-size: 0.65rem;
       font-weight: 700;
-      padding: 1px 5px;
+      padding: 1px 6px;
       border-radius: 3px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.04em;
     }
-    .source-tag.microphone { background: #172554; color: #60a5fa; }
-    .source-tag.system     { background: #052e16; color: #4ade80; }
+    .speaker-tag.microphone { background: #172554; color: #60a5fa; }
+    .speaker-tag.system     { background: #052e16; color: #4ade80; }
 
     .chunk-time {
       font-size: 0.62rem;
@@ -766,10 +765,12 @@
         return;
       }
 
-      // Plain transcript chunk (no type field, or type not handled above)
-      appendChunk(msg);
-      transcriptBuffer.push(msg.text);
-      if (transcriptBuffer.length > MAX_BUFFER_CHUNKS) transcriptBuffer.shift();
+      // Transcript chunk (explicit type or legacy no-type)
+      if (msg.type === 'transcript' || msg.text !== undefined) {
+        appendChunk(msg);
+        transcriptBuffer.push(msg.text);
+        if (transcriptBuffer.length > MAX_BUFFER_CHUNKS) transcriptBuffer.shift();
+      }
     };
 
     ws.onerror = () => setStatus('error');
@@ -1116,15 +1117,19 @@
 
   function appendChunk(chunk) {
     clearPlaceholder();
-    const time = new Date(chunk.timestamp * 1000).toLocaleTimeString();
-    const conf = Math.round((chunk.confidence || 0) * 100);
-    const src  = chunk.source || 'microphone';
+    const time    = new Date(chunk.timestamp * 1000).toLocaleTimeString();
+    const conf    = Math.round((chunk.confidence || 0) * 100);
+    const src     = chunk.source || 'microphone';
+    const speaker = chunk.speaker || (src === 'microphone' ? 'You' : 'Them');
+    const tooltip = src === 'microphone'
+      ? 'Your microphone'
+      : 'Them = audio from Zoom / Teams / Meet playing through speakers';
 
     const el = document.createElement('div');
     el.className = 'transcript-chunk';
     el.innerHTML = `
       <div class="chunk-meta">
-        <span class="source-tag ${escHtml(src)}">${escHtml(src)}</span>
+        <span class="speaker-tag ${escHtml(src)}" title="${escHtml(tooltip)}">[${escHtml(speaker)}]</span>
         <span class="chunk-time">${time}</span>
         <div class="confidence-bar" title="Confidence: ${conf}%">
           <div class="confidence-bar-fill" style="width:${conf}%"></div>

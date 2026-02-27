@@ -1,0 +1,8 @@
+# MeetingMind — Application Settings
+# Copy of settings.example.toml with active values.
+
+[token_budget]
+max_input_tokens  = 800
+max_output_tokens = 120
+context_tokens    = 200
+warn_at_percent   = 80

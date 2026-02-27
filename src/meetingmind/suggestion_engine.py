@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Optional
 
 from meetingmind._api_key import load_api_key as _load_api_key
+from meetingmind.token_budget import enforce_budget, log_usage, CONTEXT_TOKENS
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,12 @@ def get_suggestions(
     """
     if not transcript_snippet.strip():
         raise ValueError("transcript_snippet must not be empty.")
+
+    transcript_snippet = enforce_budget(transcript_snippet)
+    log_usage("transcript", transcript_snippet)
+    if context:
+        context = enforce_budget(context, max_tokens=CONTEXT_TOKENS)
+        log_usage("context", context)
 
     api_key = _load_api_key()
 

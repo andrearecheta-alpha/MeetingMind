@@ -87,7 +87,7 @@ _SILENCE_THRESHOLD: float = 0.00005
 # Transcription config — single place to tune defaults
 # ---------------------------------------------------------------------------
 _WHISPER_MODEL_DEFAULT:  str   = "base"   # tiny|base|small|medium|large
-_CHUNK_SECONDS_DEFAULT:  float = 2.0      # seconds of audio per Whisper call
+_CHUNK_SECONDS_DEFAULT:  float = 3.0      # seconds of audio per Whisper call
 _LANGUAGE_DEFAULT:       str   = "en"     # skips per-chunk language detection
 _MAX_CONCURRENT_WHISPER: int   = 1        # sequential — 1 Whisper task at a time
 
@@ -271,7 +271,7 @@ async def _transcription_loop() -> None:
                         asyncio.to_thread(
                             _meeting["transcriber"].transcribe_chunk, chunk
                         ),
-                        timeout=5.0,
+                        timeout=3.0,
                     )
                     elapsed = time.time() - _t0
                     times   = _stats.setdefault("whisper_times", [])
@@ -281,7 +281,7 @@ async def _transcription_loop() -> None:
                         sum(_stats["whisper_times"]) / len(_stats["whisper_times"]), 3
                     )
                 except asyncio.TimeoutError:
-                    logger.warning("WHISPER TIMEOUT >5 s — chunk skipped (%s)", chunk.source.value)
+                    logger.warning("SKIP: whisper timeout >3 s — chunk skipped (%s)", chunk.source.value)
                     _stats["chunks_filtered"] += 1
                     continue
                 except Exception as exc:

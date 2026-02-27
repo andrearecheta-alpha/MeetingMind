@@ -15,6 +15,7 @@ works fully offline.
 
 from __future__ import annotations
 
+import collections
 import json
 import logging
 import math
@@ -329,9 +330,11 @@ class TranscriptChunk:
     def to_dict(self) -> dict:
         """Return a JSON-serialisable dict for WebSocket broadcast."""
         return {
+            "type":       "transcript",
             "text":       self.text,
             "language":   self.language,
             "source":     self.source,
+            "speaker":    "You" if self.source == "microphone" else "Them",
             "timestamp":  self.timestamp,
             "confidence": self.confidence,
         }
@@ -370,9 +373,16 @@ class StreamingTranscriber:
             language:     Optional ISO-639-1 hint (e.g. "en") applied to every
                           chunk. None = Whisper auto-detects per chunk.
         """
-        self._model_size  = model_size
-        self._language    = language
+        self._model_size   = model_size
+        self._language     = language
         self._privacy_mode = privacy_mode
+
+        # Energy-based VAD: rolling window of the last 10 chunk peak values.
+        # A silent chunk is passed through to Whisper if any of the most recent
+        # _VAD_LOOKBACK chunks exceeded the threshold — this keeps mid-sentence
+        # gaps from being cut when RMS briefly dips between words.
+        self._vad_history: collections.deque[float] = collections.deque(maxlen=10)
+        self._VAD_LOOKBACK: int = 3   # how many recent chunks to check
 
         # Load the model once at construction time — this may download weights
         # on first use (~150 MB for medium) then runs fully offline.
@@ -418,15 +428,33 @@ class StreamingTranscriber:
         Returns:
             TranscriptChunk, or None if the chunk should be discarded.
         """
-        # ── 1. Fast silence gate (avoids loading Whisper for quiet periods) ──
-        # Use peak amplitude: a 1.5 s chunk with 0.1 s of speech still has
-        # low average RMS but a detectable peak — peak gate passes it through.
-        if chunk.peak_rms < _SILENCE_PEAK_THRESHOLD:
+        # ── 1. Energy-based VAD silence gate ──────────────────────────────────
+        # Pass the chunk through if its own peak exceeds the threshold OR if
+        # any of the last _VAD_LOOKBACK chunks did — this bridges the brief
+        # RMS dips that occur between words mid-sentence (inter-word silence).
+        # The rolling history stores peak_rms for every chunk (voiced or not)
+        # so the window accurately reflects recency.
+        recent_peaks = list(self._vad_history)[-self._VAD_LOOKBACK:]
+        recently_voiced = any(p >= _SILENCE_PEAK_THRESHOLD for p in recent_peaks)
+        chunk_voiced    = chunk.peak_rms >= _SILENCE_PEAK_THRESHOLD
+
+        # Always record this chunk in history before deciding.
+        self._vad_history.append(chunk.peak_rms)
+
+        if not chunk_voiced and not recently_voiced:
             logger.info(
                 "GATE  silent  peak=%.5f < threshold=%.3f  avg_rms=%.5f  source=%s",
                 chunk.peak_rms, _SILENCE_PEAK_THRESHOLD, chunk.rms, chunk.source.value,
             )
             return None
+
+        if not chunk_voiced and recently_voiced:
+            logger.info(
+                "GATE  vad-carry  peak=%.5f  recent=%s  source=%s",
+                chunk.peak_rms,
+                [f"{p:.5f}" for p in recent_peaks],
+                chunk.source.value,
+            )
 
         # ── 2. Run Whisper inference ──────────────────────────────────────────
         try:
