@@ -9,7 +9,7 @@ Run with:
 
 Notes
 -----
-- Tests that load Whisper use the 'tiny' model to keep run time short.
+- Tests that load Whisper use the 'tiny.en' model to keep run time short.
 - Tests marked @pytest.mark.hardware require a microphone and are skipped
   in CI environments where no audio device is present.
 - No audio is recorded during tests — mocks are used where hardware access
@@ -115,9 +115,9 @@ class TestStreamingTranscriber:
     """Tests for the chunk-based Whisper transcriber."""
 
     def test_whisper_tiny_loads(self):
-        """Whisper 'tiny' model should load without errors."""
+        """Whisper 'tiny.en' model should load without errors."""
         from meetingmind.transcriber import _load_whisper_model
-        model = _load_whisper_model("tiny")
+        model = _load_whisper_model("tiny.en")
         assert model is not None
 
     def test_silent_chunk_returns_none(self):
@@ -125,7 +125,7 @@ class TestStreamingTranscriber:
         from meetingmind.audio_capture import AudioChunk, AudioSource
         from meetingmind.transcriber   import StreamingTranscriber
 
-        transcriber = StreamingTranscriber(model_size="tiny", privacy_mode=False)
+        transcriber = StreamingTranscriber(model_size="tiny.en", privacy_mode=False)
         silent = AudioChunk(
             data=np.zeros(48_000, dtype=np.float32),
             source=AudioSource.MICROPHONE,
@@ -237,3 +237,143 @@ class TestMeetingEndpoints:
             assert response.status_code == 400
         finally:
             _meeting["active"] = False  # Reset state
+
+
+# ===========================================================================
+# Calibration and gate tracking tests
+# ===========================================================================
+
+class TestCalibratedThreshold:
+    """Tests for the configurable silence_threshold in StreamingTranscriber."""
+
+    def test_default_threshold_used(self):
+        """Without silence_threshold arg, the module-level default is used."""
+        from meetingmind.transcriber import StreamingTranscriber, _SILENCE_PEAK_THRESHOLD
+        t = StreamingTranscriber(model_size="tiny.en", privacy_mode=False)
+        assert t._silence_threshold == _SILENCE_PEAK_THRESHOLD
+
+    def test_custom_threshold_respected(self):
+        """A custom silence_threshold should override the default."""
+        from meetingmind.transcriber import StreamingTranscriber
+        t = StreamingTranscriber(
+            model_size="tiny.en", privacy_mode=False, silence_threshold=0.01
+        )
+        assert t._silence_threshold == 0.01
+
+    def test_silent_chunk_still_filtered(self):
+        """Pure silence (RMS=0, peak=0) must still be filtered regardless of threshold."""
+        from meetingmind.audio_capture import AudioChunk, AudioSource
+        from meetingmind.transcriber   import StreamingTranscriber
+
+        t = StreamingTranscriber(
+            model_size="tiny.en", privacy_mode=False, silence_threshold=0.0001
+        )
+        silent = AudioChunk(
+            data=np.zeros(24_000, dtype=np.float32),
+            source=AudioSource.MICROPHONE,
+            timestamp=time.time(),
+            rms=0.0,
+        )
+        result = t.transcribe_chunk(silent)
+        assert result is None
+
+    def test_low_threshold_passes_quiet_speech(self):
+        """With a very low threshold (0.0001), a chunk with peak_rms=0.0005 should pass the silence gate (not return None due to 'silent')."""
+        from meetingmind.audio_capture import AudioChunk, AudioSource
+        from meetingmind.transcriber   import StreamingTranscriber
+
+        t = StreamingTranscriber(
+            model_size="tiny.en", privacy_mode=False, silence_threshold=0.0001
+        )
+        # Create a chunk with low but non-zero peak — above 0.0001 threshold
+        data = np.random.randn(24_000).astype(np.float32) * 0.001
+        chunk = AudioChunk(
+            data=data,
+            source=AudioSource.MICROPHONE,
+            timestamp=time.time(),
+            rms=float(np.sqrt(np.mean(data ** 2))),
+        )
+        # Force peak_rms to be above threshold
+        chunk.peak_rms = 0.0005
+        t.transcribe_chunk(chunk)
+        # If it passed the silence gate, last_gate should NOT be "silent"
+        assert t.last_gate != "silent"
+
+
+class TestLastGateAttribute:
+    """Tests for the last_gate attribute on StreamingTranscriber."""
+
+    def test_last_gate_set_on_silence(self):
+        """last_gate should be 'silent' when chunk is filtered by silence gate."""
+        from meetingmind.audio_capture import AudioChunk, AudioSource
+        from meetingmind.transcriber   import StreamingTranscriber
+
+        t = StreamingTranscriber(model_size="tiny.en", privacy_mode=False)
+        silent = AudioChunk(
+            data=np.zeros(24_000, dtype=np.float32),
+            source=AudioSource.MICROPHONE,
+            timestamp=time.time(),
+            rms=0.0,
+        )
+        t.transcribe_chunk(silent)
+        assert t.last_gate == "silent"
+
+    def test_last_gate_none_initially(self):
+        """last_gate should be None before any call to transcribe_chunk."""
+        from meetingmind.transcriber import StreamingTranscriber
+        t = StreamingTranscriber(model_size="tiny.en", privacy_mode=False)
+        assert t.last_gate is None
+
+
+class TestPerGateCounters:
+    """Tests for per-gate diagnostic counters in _stats."""
+
+    def test_gate_counters_exist_in_stats(self):
+        """_stats must contain all per-gate counter keys."""
+        from meetingmind.main import _stats
+        for key in ("gate_silent", "gate_timeout", "gate_no_speech", "gate_empty", "gate_error"):
+            assert key in _stats, f"Missing _stats key: {key}"
+
+    def test_debug_returns_gate_breakdown(self):
+        """GET /debug should include a gate_breakdown dict."""
+        from fastapi.testclient import TestClient
+        from meetingmind.main import app
+
+        client = TestClient(app)
+        data   = client.get("/debug").json()
+        assert "gate_breakdown" in data
+        gb = data["gate_breakdown"]
+        for key in ("silent", "timeout", "no_speech", "empty", "error"):
+            assert key in gb, f"Missing gate_breakdown key: {key}"
+
+    def test_debug_returns_calibrated_threshold(self):
+        """GET /debug should include the calibrated_threshold field."""
+        from fastapi.testclient import TestClient
+        from meetingmind.main import app
+
+        client = TestClient(app)
+        data   = client.get("/debug").json()
+        assert "calibrated_threshold" in data
+
+
+class TestCalibrateEndpoint:
+    """Tests for POST /calibrate."""
+
+    def test_calibrate_no_meeting_returns_400(self):
+        """POST /calibrate without an active meeting should return 400."""
+        from fastapi.testclient import TestClient
+        from meetingmind.main import app, _meeting
+
+        _meeting["active"] = False
+        client   = TestClient(app)
+        response = client.post("/calibrate")
+        assert response.status_code == 400
+        assert "error" in response.json()
+
+
+class TestNoSpeechThresholdRelaxed:
+    """Verify that the no_speech_prob threshold was relaxed to 0.90."""
+
+    def test_threshold_value(self):
+        from meetingmind.transcriber import _NO_SPEECH_PROB_THRESHOLD
+        assert _NO_SPEECH_PROB_THRESHOLD == 0.90

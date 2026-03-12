@@ -3,14 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MeetingMind — Live Transcription</title>
+  <meta name="theme-color" content="#00695C" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>MeetingMind</title>
   <style>
+    /* ── Brand colour tokens ────────────────────────────────────────────── */
+    :root {
+      --mm-bg:           #F5F5F5;
+      --mm-surface:      #FFFFFF;
+      --mm-primary:      #00695C;
+      --mm-primary-mid:  #009688;
+      --mm-accent:       #E65100;
+      --mm-accent-hover: #EF6C00;
+      --mm-text:         #212121;
+      --mm-text-muted:   #757575;
+      --mm-border:       #E0E0E0;
+      --mm-ok:           #2E7D32;
+      --mm-notable:      #F57C00;
+      --mm-flag:         #C62828;
+    }
+
+    /* ── Reset & base ───────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #0f1117;
-      color: #e2e8f0;
+      background: var(--mm-bg);
+      color: var(--mm-text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -18,8 +39,8 @@
 
     /* ── Header ─────────────────────────────────────────────────────────── */
     header {
-      background: #1a1d27;
-      border-bottom: 1px solid #2d3148;
+      background: var(--mm-primary);
+      border-bottom: 1px solid var(--mm-primary);
       padding: 0 2rem;
       height: 52px;
       display: flex;
@@ -30,199 +51,916 @@
       z-index: 100;
     }
 
-    .logo { display: flex; align-items: center; gap: 0.6rem; }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
     .logo-icon {
-      width: 26px; height: 26px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      width: 26px;
+      height: 26px;
+      background: #FFFFFF33;
       border-radius: 6px;
-      display: flex; align-items: center; justify-content: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 13px;
     }
-    .logo-text { font-size: 0.95rem; font-weight: 600; color: #f1f5f9; }
+
+    .logo-text { font-size: 0.95rem; font-weight: 600; color: #FFFFFF; }
+
+    .logo-badge {
+      font-size: 0.62rem;
+      background: var(--mm-accent);
+      color: white;
+      padding: 2px 7px;
+      border-radius: 99px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
 
     /* ── Status pill ─────────────────────────────────────────────────────── */
-    .status-pill { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: #94a3b8; }
-    .status-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #475569;
-      transition: background 0.3s, box-shadow 0.3s;
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      color: #FFFFFFCC;
     }
-    .status-dot.connecting  { background: #94a3b8; animation: pulse-dot 1.4s ease-in-out infinite; }
-    .status-dot.connected   { background: #3b82f6; }
-    .status-dot.live        { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #FFFFFF88;
+      transition: background 0.3s, box-shadow 0.3s;
+      flex-shrink: 0;
+    }
+
+    .status-dot.connecting { background: #FFFFFFAA; animation: pulse-dot 1.4s ease-in-out infinite; }
+    .status-dot.connected  { background: #3b82f6; }
+    .status-dot.live       { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
     .status-dot.error,
     .status-dot.disconnected { background: #ef4444; }
 
+    /* Tooltip shown on hover over status label when disconnected */
+    .status-pill { position: relative; }
+    #status-tooltip {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: var(--mm-surface);
+      border: 1px solid #ef444466;
+      border-radius: 7px;
+      padding: 0.55rem 0.85rem;
+      font-size: 0.72rem;
+      color: var(--mm-flag);
+      white-space: nowrap;
+      z-index: 200;
+      line-height: 1.6;
+      box-shadow: 0 4px 16px #00000022;
+    }
+    #status-tooltip::before {
+      content: '';
+      position: absolute;
+      top: -5px; right: 16px;
+      width: 8px; height: 8px;
+      background: var(--mm-surface);
+      border-left: 1px solid #ef444466;
+      border-top: 1px solid #ef444466;
+      transform: rotate(45deg);
+    }
+    .status-pill:hover #status-tooltip { display: block; }
+
     #btn-reconnect {
-      background: none; border: 1px solid #334155; color: #94a3b8;
-      font-size: 0.68rem; font-weight: 600; padding: 0.15rem 0.5rem;
-      border-radius: 4px; cursor: pointer; transition: all 0.15s; display: none;
+      background: none;
+      border: 1px solid #FFFFFF66;
+      color: #FFFFFFCC;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: none;
     }
-    #btn-reconnect:hover { color: #e2e8f0; border-color: #6366f1; }
+    #btn-reconnect:hover { color: #FFFFFF; border-color: var(--mm-accent); }
 
-    /* ── Layout ──────────────────────────────────────────────────────────── */
+    /* ── Layout ─────────────────────────────────────────────────────────── */
     main {
-      flex: 1; display: flex; flex-direction: column;
-      max-height: calc(100vh - 52px); overflow: hidden;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 52px);
+      overflow: hidden;
     }
 
-    /* ── Controls bar ────────────────────────────────────────────────────── */
-    .controls {
-      background: #1a1d27; border-bottom: 1px solid #2d3148;
-      padding: 0.6rem 2rem; display: flex; align-items: center;
-      gap: 0.8rem; flex-wrap: wrap;
+    /* Wrapper for the two side-by-side content panes */
+    .panels-row {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      min-height: 0;          /* required for flex scrolling to work */
+      overflow: hidden;
     }
-    .ctrl-sep { width: 1px; height: 20px; background: #2d3148; flex-shrink: 0; }
+
+    /* ── Controls bar ───────────────────────────────────────────────────── */
+    .controls {
+      min-height: 48px;
+      flex-shrink: 0;
+      background: var(--mm-surface);
+      border-bottom: 1px solid var(--mm-border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+
+    .ctrl-sep {
+      width: 1px;
+      height: 20px;
+      background: var(--mm-border);
+      flex-shrink: 0;
+    }
 
     button {
-      cursor: pointer; border: none; border-radius: 6px;
-      font-size: 0.78rem; font-weight: 600;
-      padding: 0.42rem 1rem; transition: all 0.15s; white-space: nowrap;
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.42rem 1rem;
+      transition: all 0.15s;
+      white-space: nowrap;
     }
 
-    #btn-start { background: #6366f1; color: white; }
-    #btn-start:hover:not(:disabled) { background: #4f46e5; }
+    #btn-start { background: var(--mm-accent); color: white; }
+    #btn-start:hover:not(:disabled) { background: var(--mm-accent-hover); }
 
-    #btn-stop  { background: #1e2235; color: #64748b; border: 1px solid #2d3148; }
+    #btn-stop  { background: var(--mm-surface); color: var(--mm-text-muted); border: 1px solid var(--mm-border); }
     #btn-stop:hover:not(:disabled)  { background: #ef4444; color: white; border-color: #ef4444; }
 
-    #btn-reset { background: #1e2235; color: #64748b; border: 1px solid #2d3148; }
-    #btn-reset:hover { background: #334155; color: #94a3b8; border-color: #475569; }
+    #btn-reset { background: var(--mm-surface); color: var(--mm-text-muted); border: 1px solid var(--mm-border); }
+    #btn-reset:hover { background: var(--mm-bg); color: var(--mm-text); border-color: var(--mm-border); }
 
     button:disabled { opacity: 0.38; cursor: not-allowed; }
 
     .ctrl-label {
-      font-size: 0.7rem; font-weight: 600; color: #475569;
-      letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--mm-text-muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
+
+    .device-wrap { position: relative; flex-shrink: 0; }
 
     select.ctrl-select {
-      background: #0d0f18; border: 1px solid #2d3148; color: #cbd5e1;
-      border-radius: 6px; padding: 0.38rem 0.65rem; font-size: 0.78rem;
-      max-width: 220px; cursor: pointer; transition: border-color 0.15s; appearance: auto;
+      background: var(--mm-surface);
+      border: 1px solid var(--mm-border);
+      color: var(--mm-text);
+      border-radius: 6px;
+      padding: 0.38rem 0.65rem;
+      font-size: 0.78rem;
+      max-width: 220px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+      appearance: auto;
     }
-    select.ctrl-select:hover { border-color: #475569; }
-    select.ctrl-select:focus { outline: none; border-color: #6366f1; }
-    select.ctrl-select option { background: #1a1d27; color: #e2e8f0; }
+    select.ctrl-select:hover  { border-color: var(--mm-text-muted); }
+    select.ctrl-select:focus  { outline: none; border-color: var(--mm-primary-mid); }
+    select.ctrl-select option { background: var(--mm-surface); color: var(--mm-text); }
+    select.ctrl-select optgroup { background: var(--mm-bg); color: var(--mm-text-muted); font-style: normal; font-size: 0.72rem; }
+
+    .inline-warn {
+      position: absolute;
+      top: calc(100% + 2px);
+      left: 0;
+      font-size: 0.68rem;
+      color: var(--mm-notable);
+      white-space: nowrap;
+      display: none;
+      z-index: 10;
+      background: var(--mm-surface);
+      border: 1px solid var(--mm-notable);
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
 
     .elapsed {
-      margin-left: auto; font-size: 0.73rem; color: #475569;
-      font-variant-numeric: tabular-nums; font-weight: 600; flex-shrink: 0;
+      margin-left: auto;
+      font-size: 0.73rem;
+      color: var(--mm-text-muted);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      flex-shrink: 0;
     }
 
-    /* ── Error banner ────────────────────────────────────────────────────── */
+    /* ── Warning banner — 32px collapsed, expands on Details click ─────── */
+    #warning-banner {
+      flex-shrink: 0;
+      background: #FFF3E0;
+      border-bottom: 1px solid var(--mm-notable);
+      padding: 0 2rem;
+      font-size: 0.73rem;
+      color: #E65100;
+      display: none;              /* JS sets to flex when warnings present */
+      flex-direction: column;
+      max-height: 32px;
+      overflow: hidden;
+      transition: max-height 0.25s ease;
+    }
+    #warning-banner.expanded { max-height: 200px; }
+
+    .warn-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      height: 32px;
+      flex-shrink: 0;
+    }
+
+    .warn-icon { flex-shrink: 0; font-size: 0.8rem; }
+
+    #warn-summary {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #btn-warn-toggle {
+      background: none;
+      border: none;
+      color: #BF360C;
+      font-size: 0.68rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.15s;
+    }
+    #btn-warn-toggle:hover { color: var(--mm-accent); }
+
+    #warn-details {
+      padding: 0.3rem 0 0.4rem 1.4rem;
+      border-top: 1px solid var(--mm-notable);
+    }
+    #warn-details ul { list-style: disc; padding-left: 0.5rem; }
+    #warn-details li { margin: 0.15rem 0; line-height: 1.5; color: #BF360C; }
+
+    /* ── Error banner ───────────────────────────────────────────────────── */
     .error-banner {
-      background: #200d0d; border-bottom: 1px solid #7f1d1d;
-      padding: 0.45rem 2rem; font-size: 0.78rem; color: #fca5a5;
-      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      flex-shrink: 0;
+      background: #FFEBEE;
+      border-bottom: 1px solid var(--mm-flag);
+      padding: 0.45rem 2rem;
+      font-size: 0.78rem;
+      color: var(--mm-flag);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
     }
-    .error-banner button { background: none; color: #fca5a5; font-size: 0.85rem; padding: 0 0.3rem; }
-    .error-banner button:hover { color: #fff; }
+    .error-banner button {
+      background: none;
+      color: var(--mm-flag);
+      font-size: 0.85rem;
+      padding: 0 0.3rem;
+      flex-shrink: 0;
+    }
+    .error-banner button:hover { color: var(--mm-text); }
 
-    /* ── RMS meter ───────────────────────────────────────────────────────── */
+    /* ── Transcript pane ────────────────────────────────────────────────── */
+    .transcript-pane {
+      flex: 40;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--mm-border);
+      overflow: hidden;
+    }
+
+    .pane-header {
+      padding: 0.65rem 1.5rem;
+      font-size: 0.67rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--mm-primary);
+      border-bottom: 1px solid var(--mm-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .clear-btn {
+      background: none;
+      color: var(--mm-text-muted);
+      font-size: 0.67rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+    }
+    .clear-btn:hover { color: var(--mm-text); background: var(--mm-bg); }
+
+    #transcript-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.9rem 1.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      scroll-behavior: smooth;
+    }
+
+    /* ── Manual [Them] input bar ─────────────────────────────────── */
+    .them-input-bar {
+      display: flex;
+      gap: 0.4rem;
+      padding: 0.45rem 0.8rem;
+      border-top: 1px solid var(--mm-border);
+      background: var(--mm-surface);
+      flex-shrink: 0;
+    }
+    .them-text-field {
+      flex: 1;
+      font-size: 0.78rem;
+      padding: 0.35rem 0.55rem;
+      border: 1px solid var(--mm-border);
+      border-radius: 5px;
+      background: var(--mm-bg);
+      color: var(--mm-text);
+      outline: none;
+    }
+    .them-text-field:focus { border-color: var(--mm-primary-mid); }
+    .them-text-field::placeholder { color: var(--mm-text-muted); font-size: 0.72rem; }
+    .them-submit-btn {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 0.35rem 0.7rem;
+      border-radius: 5px;
+      background: var(--mm-primary-mid);
+      color: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .them-submit-btn:hover { background: var(--mm-primary); }
+    .them-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .transcript-chunk {
+      background: var(--mm-surface);
+      border: 1px solid var(--mm-border);
+      border-radius: 8px;
+      padding: 0.55rem 0.85rem;
+      animation: fadeIn 0.2s ease;
+    }
+    .transcript-chunk.decision {
+      border-color: var(--mm-notable);
+      background: #FFF8E1;
+    }
+
+    .decision-badge {
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: var(--mm-notable);
+      color: #FFFFFF;
+      letter-spacing: 0.05em;
+    }
+
+    .transcript-chunk .chunk-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin-bottom: 0.28rem;
+    }
+
+    .speaker-tag {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+    }
+    .speaker-tag.microphone { background: #E3F2FD; color: #1565C0; }
+    .speaker-tag.system     { background: #E8F5E9; color: var(--mm-ok); }
+    .speaker-tag.guest      { background: #F3E5F5; color: #7B1FA2; }
+
+    /* ── Guest banner ───────────────────────────────────────────────────── */
+    #guest-banner {
+      flex-shrink: 0;
+      background: #F3E5F5;
+      border-bottom: 1px solid #CE93D8;
+      padding: 0.35rem 2rem;
+      font-size: 0.75rem;
+      color: #7B1FA2;
+      display: none;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .chunk-time {
+      font-size: 0.62rem;
+      color: var(--mm-text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .confidence-bar {
+      margin-left: auto;
+      width: 32px;
+      height: 2px;
+      background: var(--mm-border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .confidence-bar-fill {
+      height: 100%;
+      background: var(--mm-primary-mid);
+      border-radius: 99px;
+    }
+
+    .chunk-text {
+      font-size: 0.85rem;
+      line-height: 1.55;
+      color: var(--mm-text);
+    }
+
+    .placeholder-text {
+      color: var(--mm-text-muted);
+      font-size: 0.82rem;
+      text-align: center;
+      margin: auto;
+      padding: 2rem;
+      line-height: 1.8;
+    }
+    .placeholder-text strong { color: var(--mm-text); display: block; margin-bottom: 0.5rem; font-size: 0.88rem; }
+
+    /* ── Suggestions pane ───────────────────────────────────────────────── */
+    .suggestions-pane {
+      flex: 30;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #suggestions-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .suggestion-card {
+      background: var(--mm-surface);
+      border: 1px solid var(--mm-border);
+      border-left: 3px solid var(--mm-primary-mid);
+      border-radius: 8px;
+      padding: 0.7rem 0.85rem;
+      font-size: 0.81rem;
+      line-height: 1.55;
+      color: var(--mm-text);
+      cursor: pointer;
+      transition: all 0.15s;
+      animation: fadeIn 0.2s ease;
+    }
+    .suggestion-card:hover {
+      border-left-color: var(--mm-primary);
+      background: var(--mm-bg);
+      color: var(--mm-text);
+    }
+    .suggestion-card .suggestion-num {
+      font-size: 0.6rem;
+      color: var(--mm-primary-mid);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.3rem;
+    }
+
+    /* ── Skeleton loading cards ────────────────────────────────────────── */
+    @keyframes shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position:  400px 0; }
+    }
+    .skeleton-card {
+      background: var(--mm-surface);
+      border: 1px solid var(--mm-border);
+      border-left: 3px solid var(--mm-border);
+      border-radius: 8px;
+      padding: 0.7rem 0.85rem;
+      overflow: hidden;
+    }
+    .skeleton-line {
+      height: 0.65rem;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--mm-border) 25%, #BDBDBD 50%, var(--mm-border) 75%);
+      background-size: 800px 100%;
+      animation: shimmer 1.4s ease-in-out infinite;
+      margin-bottom: 0.45rem;
+    }
+    .skeleton-line:last-child { margin-bottom: 0; }
+    .skeleton-line.short { width: 55%; }
+    .skeleton-line.medium { width: 80%; }
+    .skeleton-line.long   { width: 100%; }
+
+    .suggest-btn {
+      background: var(--mm-bg);
+      border: 1px solid var(--mm-border);
+      border-top: 1px solid var(--mm-border);
+      color: var(--mm-accent);
+      font-size: 0.75rem;
+      padding: 0.55rem 1rem;
+      border-radius: 0;
+      width: 100%;
+      transition: all 0.15s;
+    }
+    .suggest-btn:hover:not(:disabled) {
+      background: var(--mm-accent);
+      color: white;
+    }
+
+    /* ── Key facts panel ─────────────────────────────────────────────────── */
+    .fact-panel { padding: 0.9rem 1rem; }
+    .fact-header {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--mm-primary);
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+    }
+    .fact-divider { border-top: 1px solid var(--mm-border); margin: 0.5rem 0; }
+    .fact-row { display: flex; gap: 0.6rem; padding: 0.28rem 0; align-items: flex-start; }
+    .fact-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--mm-text-muted);
+      min-width: 64px;
+      flex-shrink: 0;
+      padding-top: 0.05rem;
+    }
+    .fact-value { font-size: 0.78rem; color: var(--mm-text); line-height: 1.4; }
+    .fact-value.empty { color: var(--mm-text-muted); }
+
+    /* ── Fact-check alerts ────────────────────────────────────────────────── */
+    .fact-check-section { border-top: 1px solid var(--mm-border); margin-top: 0.8rem; padding-top: 0.6rem; }
+    .fact-check-header {
+      font-size: 0.65rem; font-weight: 700; color: var(--mm-text-muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      margin-bottom: 0.4rem;
+    }
+    .fact-check-card {
+      background: var(--mm-bg); border-radius: 6px; padding: 0.5rem 0.6rem;
+      margin-bottom: 0.35rem; border-left: 3px solid var(--mm-text-muted);
+      font-size: 0.75rem; line-height: 1.35;
+    }
+    .fact-check-card.fact-ok      { border-left-color: var(--mm-ok); }
+    .fact-check-card.fact-notable { border-left-color: var(--mm-notable); }
+    .fact-check-card.fact-flag    { border-left-color: var(--mm-flag); }
+    .fc-entity { font-weight: 600; color: var(--mm-text); }
+    .fc-variance { font-size: 0.68rem; margin-left: 0.3rem; }
+    .fc-variance.fact-ok      { color: var(--mm-ok); }
+    .fc-variance.fact-notable { color: var(--mm-notable); }
+    .fc-variance.fact-flag    { color: var(--mm-flag); }
+    .fc-stored { color: var(--mm-text-muted); font-size: 0.7rem; margin-top: 0.2rem; }
+    .fc-time { color: var(--mm-text-muted); font-size: 0.62rem; float: right; }
+
+    /* ── 1:1 Mode toggle ─────────────────────────────────────────────────── */
+    .ctrl-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.72rem;
+      color: var(--mm-text-muted);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .ctrl-toggle input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--mm-primary-mid);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .ctrl-toggle:hover { color: var(--mm-text); }
+    .ctrl-toggle.active { color: var(--mm-primary); }
+
+    .suggestions-placeholder {
+      color: var(--mm-text-muted);
+      font-size: 0.78rem;
+      text-align: center;
+      padding: 1.5rem 1rem;
+      line-height: 1.8;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      border: 2px solid var(--mm-border);
+      border-top-color: var(--mm-primary-mid);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.35rem;
+    }
+
+    /* ── Animations ─────────────────────────────────────────────────────── */
+    @keyframes fadeIn    { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+    @keyframes spin      { to { transform: rotate(360deg); } }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+    @keyframes scope-pulse { 0% { box-shadow: 0 0 0 0 rgba(211,47,47,0.25); } 50% { box-shadow: 0 0 0 6px rgba(211,47,47,0); } 100% { box-shadow: 0 0 0 0 rgba(211,47,47,0); } }
+    /* ── Coaching panel (Panel 2) ───────────────────────────────────────── */
+    .coaching-panel {
+      flex: 30;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--mm-border);
+      overflow: hidden;
+    }
+
+    #coaching-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.7rem 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .coaching-placeholder {
+      color: var(--mm-text-muted);
+      font-size: 0.78rem;
+      text-align: center;
+      margin: auto;
+      padding: 1.5rem 1rem;
+      line-height: 1.8;
+    }
+    .coaching-placeholder strong { color: var(--mm-text); display: block; margin-bottom: 0.3rem; font-size: 0.83rem; }
+
+    /* Coaching item card */
+    .coaching-item {
+      background: var(--mm-surface);
+      border: 1px solid var(--mm-border);
+      border-left: 3px solid var(--mm-ok);
+      border-radius: 7px;
+      padding: 0.5rem 0.65rem;
+      animation: fadeIn 0.2s ease;
+    }
+    .coaching-item.high   { border-left-color: var(--mm-flag); background: #FFEBEE; }
+    .coaching-item.medium { border-left-color: var(--mm-notable); background: #FFF3E0; }
+    .coaching-item.info   { border-left-color: var(--mm-ok); background: #E8F5E9; }
+
+    .coaching-item.acted-on { opacity: 0.4; }
+    .coaching-item.acted-on .coach-item-prompt { text-decoration: line-through; }
+    .coaching-item.auto-resolved { border-color: var(--mm-ok) !important; box-shadow: 0 0 0 1px #2E7D3233; }
+
+    .coach-act-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      flex-shrink: 0;
+    }
+    .coach-act-check {
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+      accent-color: var(--mm-ok);
+      flex-shrink: 0;
+    }
+    .coach-act-label {
+      font-size: 0.62rem;
+      color: var(--mm-text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .coach-auto-note {
+      font-size: 0.6rem;
+      color: var(--mm-ok);
+      margin-top: 0.25rem;
+      font-style: italic;
+    }
+
+    .coach-item-header {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin-bottom: 0.3rem;
+    }
+    .coach-urgency-icon { font-size: 0.7rem; flex-shrink: 0; }
+    .coach-item-label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--mm-text-muted);
+      flex: 1;
+    }
+    .coach-item-time {
+      font-size: 0.6rem;
+      color: var(--mm-text-muted);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+
+    /* ── S8-002: Action Item & Decision capture cards ───────────────── */
+    .mm-capture-card {
+      background: var(--mm-surface);
+      border: 1px solid var(--mm-border);
+      border-radius: 7px;
+      padding: 0.5rem 0.65rem;
+      margin-bottom: 0.35rem;
+      animation: fadeIn 0.25s ease;
+      position: relative;
+    }
+    .mm-capture-card .mm-card-text {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--mm-text);
+      margin-bottom: 0.25rem;
+    }
+    .mm-capture-card .mm-card-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-bottom: 0.2rem;
+    }
+    .mm-capture-card .mm-chip {
+      font-size: 0.65rem;
+      padding: 0.12rem 0.4rem;
+      border-radius: 9px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .mm-chip-owner {
+      background: #E0F2F1;
+      color: var(--mm-primary-mid);
+    }
+    .mm-chip-owner.unassigned {
+      background: #F5F5F5;
+      color: var(--mm-text-muted);
+    }
+    .mm-chip-deadline {
+      background: #FFF3E0;
+      color: var(--mm-accent);
+    }
+    .mm-chip-phase {
+      background: #E8EAF6;
+      color: #3F51B5;
+    }
+    .mm-chip-made-by {
+      background: #E0F2F1;
+      color: var(--mm-primary-mid);
+    }
+    .mm-capture-card .mm-card-quote {
+      font-size: 0.68rem;
+      color: var(--mm-text-muted);
+      font-style: italic;
+      line-height: 1.4;
+    }
+    .mm-capture-card .mm-card-dismiss {
+      position: absolute;
+      top: 0.3rem;
+      right: 0.4rem;
+      background: none;
+      border: none;
+      color: var(--mm-text-muted);
+      cursor: pointer;
+      font-size: 0.8rem;
+      line-height: 1;
+      padding: 0.1rem 0.2rem;
+      opacity: 0.5;
+    }
+    .mm-capture-card .mm-card-dismiss:hover {
+      opacity: 1;
+      color: var(--mm-flag);
+    }
+
+    /* S8-003: Scope alert cards */
+    .mm-scope-card { border-left: 3px solid var(--mm-flag); }
+    .mm-scope-card.critical { animation: scope-pulse 1s ease 2; }
+    .mm-scope-badge {
+      display: inline-block;
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 0.08rem 0.35rem;
+      border-radius: 7px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .mm-scope-badge.critical { background: var(--mm-flag); color: #fff; }
+    .mm-scope-badge.warning  { background: var(--mm-notable); color: #fff; }
+    .mm-chip-scope-type {
+      background: #FCE4EC;
+      color: #C62828;
+    }
+    .mm-chip-matched {
+      background: #E0F2F1;
+      color: var(--mm-primary-mid);
+    }
+    .mm-scope-suggestion {
+      background: #E0F2F1;
+      border-radius: 5px;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.7rem;
+      color: var(--mm-primary-mid);
+      margin-top: 0.25rem;
+      line-height: 1.4;
+    }
+
+    .coach-item-prompt {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--mm-text);
+      line-height: 1.4;
+      margin-bottom: 0.2rem;
+    }
+    .coaching-item.high   .coach-item-prompt { color: var(--mm-flag); }
+    .coaching-item.medium .coach-item-prompt { color: #E65100; }
+    .coaching-item.info   .coach-item-prompt { color: var(--mm-ok); }
+
+    .coach-item-meta {
+      font-size: 0.63rem;
+      color: var(--mm-text-muted);
+      line-height: 1.3;
+    }
+
+    /* ── RMS level meter ────────────────────────────────────────────────── */
     #rms-meter-wrap {
-      display: none; align-items: center; gap: 0.5rem;
-      padding: 3px 2rem; background: #0d0f18;
-      border-bottom: 1px solid #1e2235; font-size: 0.68rem; color: #475569;
+      flex-shrink: 0;
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 3px 2rem;
+      background: var(--mm-surface);
+      border-bottom: 1px solid var(--mm-border);
+      font-size: 0.68rem;
+      color: var(--mm-text-muted);
     }
     .rms-label { flex-shrink: 0; font-weight: 600; letter-spacing: 0.05em; }
     .rms-track {
       position: relative; flex: 1; height: 6px;
-      background: #1e2235; border-radius: 3px; overflow: visible;
+      background: var(--mm-border); border-radius: 3px; overflow: visible;
     }
     .rms-fill {
-      height: 100%; border-radius: 3px; background: #22c55e;
+      height: 100%; border-radius: 3px; background: var(--mm-ok);
       width: 0%; transition: width 0.2s ease-out;
     }
-    .rms-fill.silent { background: #334155; }
+    .rms-fill.silent { background: #BDBDBD; }
     .rms-threshold {
       position: absolute; top: -2px; bottom: -2px;
-      width: 2px; background: #f59e0b; border-radius: 1px;
+      width: 2px; background: var(--mm-notable); border-radius: 1px;
     }
     .rms-value { font-variant-numeric: tabular-nums; min-width: 4rem; text-align: right; }
-    .rms-stats {
-      font-variant-numeric: tabular-nums; min-width: 11rem;
-      text-align: right; color: #334155; letter-spacing: 0.03em;
-    }
-    .rms-stats.active       { color: #475569; }
-    .rms-stats.transcribing { color: #4ade80; }
+    .rms-stats { font-variant-numeric: tabular-nums; min-width: 11rem; text-align: right; color: #BDBDBD; letter-spacing: 0.03em; }
+    .rms-stats.active { color: var(--mm-text-muted); }
+    .rms-stats.transcribing { color: var(--mm-ok); }
 
-    /* ── Transcript pane ─────────────────────────────────────────────────── */
-    .transcript-pane { display: flex; flex-direction: column; overflow: hidden; flex: 1; }
-
-    .pane-header {
-      padding: 0.65rem 1.5rem; font-size: 0.67rem; font-weight: 700;
-      letter-spacing: 0.08em; text-transform: uppercase; color: #334155;
-      border-bottom: 1px solid #1a1d27;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-
-    .clear-btn { background: none; color: #334155; font-size: 0.67rem; padding: 0.15rem 0.45rem; border-radius: 4px; }
-    .clear-btn:hover { color: #64748b; background: #1e2235; }
-
-    #transcript-feed {
-      flex: 1; overflow-y: auto; padding: 0.9rem 1.4rem;
-      display: flex; flex-direction: column; gap: 0.45rem; scroll-behavior: smooth;
-    }
-
-    .transcript-chunk {
-      background: #14172280; border: 1px solid #1e2235;
-      border-radius: 8px; padding: 0.55rem 0.85rem;
-      animation: fadeIn 0.2s ease;
-    }
-
-    .chunk-meta { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.28rem; }
-
-    .speaker-tag {
-      font-size: 0.65rem; font-weight: 700; padding: 1px 6px;
-      border-radius: 3px; letter-spacing: 0.04em;
-    }
-    .speaker-tag.microphone { background: #172554; color: #60a5fa; }
-    .speaker-tag.system     { background: #052e16; color: #4ade80; }
-
-    .chunk-time { font-size: 0.62rem; color: #334155; font-variant-numeric: tabular-nums; }
-
-    .confidence-bar {
-      margin-left: auto; width: 32px; height: 2px;
-      background: #1e2235; border-radius: 99px; overflow: hidden;
-    }
-    .confidence-bar-fill { height: 100%; background: #4f46e5; border-radius: 99px; }
-
-    .chunk-text { font-size: 0.85rem; line-height: 1.55; color: #cbd5e1; }
-
-    .placeholder-text {
-      color: #1e2235; font-size: 0.82rem; text-align: center;
-      margin: auto; padding: 2rem; line-height: 1.8;
-    }
-    .placeholder-text strong { color: #2d3148; display: block; margin-bottom: 0.5rem; font-size: 0.88rem; }
-
-    /* ── Animations ──────────────────────────────────────────────────────── */
-    @keyframes fadeIn    { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
-
-    /* ── Scrollbar ───────────────────────────────────────────────────────── */
+    /* ── Scrollbar ──────────────────────────────────────────────────────── */
     ::-webkit-scrollbar       { width: 3px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #1e2235; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--mm-border); border-radius: 4px; }
   </style>
 </head>
 <body>
 
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
 <header>
   <div class="logo">
     <div class="logo-icon">🧠</div>
     <span class="logo-text">MeetingMind</span>
+    <span class="logo-badge" id="role-badge" title="Role: Project Manager" style="cursor:default;">PM</span>
+    <span id="cpmai-badge" style="display:none; font-size:0.68rem; background:var(--mm-accent); color:white; padding:2px 8px; border-radius:4px; margin-left:0.4rem;">Phase: ...</span>
+    <span id="meeting-timer" style="display:none; font-size:0.8rem; font-variant-numeric:tabular-nums; color:#FFFFFFCC; margin-left:0.5rem;">&#9201; 00:00:00</span>
   </div>
   <div class="status-pill">
     <div class="status-dot connecting" id="status-dot"></div>
     <span id="status-label">Connecting…</span>
-    <button id="btn-reconnect" onclick="reconnectWS()">↺ Reconnect</button>
+    <button id="btn-reconnect" onclick="reconnectWS()" title="Reconnect WebSocket">↺ Reconnect</button>
+    <div id="status-tooltip" style="display:none"></div>
   </div>
 </header>
 
+<!-- ── Main layout ─────────────────────────────────────────────────────── -->
 <main>
 
-  <!-- Controls bar -->
+  <!-- ── Controls bar (48px) ──────────────────────────────────────────── -->
   <div class="controls">
     <button id="btn-start">▶ Start</button>
     <button id="btn-stop" disabled>■ Stop</button>
@@ -231,24 +969,62 @@
     <div class="ctrl-sep"></div>
 
     <span class="ctrl-label">Mic</span>
-    <select class="ctrl-select" id="mic-select">
-      <option value="">OS Default</option>
-    </select>
+    <div class="device-wrap">
+      <select class="ctrl-select" id="mic-select" title="Select microphone">
+        <option value="">OS Default</option>
+      </select>
+      <div class="inline-warn" id="mic-virtual-warning">⚠ Virtual mic — may capture silence</div>
+    </div>
+
+    <span class="ctrl-label">System</span>
+    <div class="device-wrap">
+      <select class="ctrl-select" id="system-select" title="System audio loopback (optional)">
+        <option value="">None</option>
+      </select>
+      <div class="inline-warn" id="sys-virtual-warning">⚠ Virtual device</div>
+    </div>
 
     <div class="ctrl-sep"></div>
 
     <span class="ctrl-label">Model</span>
     <select class="ctrl-select" id="model-select">
-      <option value="base" selected>base — real-time (~5s load)</option>
-      <option value="small">small — better accuracy (~12s load)</option>
-      <option value="medium">medium — best accuracy (~60s load)</option>
-      <option value="large">large — most accurate (~100s load)</option>
+      <option value="tiny.en" selected>tiny.en — fastest, ~3s load (recommended)</option>
+      <option value="base">base — better accuracy, ~5s load</option>
+      <option value="small">small — better accuracy, ~12s load</option>
+      <option value="medium">medium — best accuracy, ~60s load</option>
+      <option value="large">large — most accurate, ~100s load</option>
     </select>
+
+    <div class="ctrl-sep"></div>
+
+    <label class="ctrl-toggle" id="onetone-label"
+           title="For 1:1 calls via Zoom/Teams/Meet with laptop speakers&#10;Mic = [You] · Stereo Mix = [Them]">
+      <input type="checkbox" id="onetone-toggle" onchange="toggleOneToneMode(this.checked)">
+      <span>1:1 Mode</span>
+    </label>
+
+    <div class="ctrl-sep"></div>
+
+    <button id="btn-guest" disabled onclick="openGuestModal()"
+            title="Invite a guest to send audio from their phone">📱 Guest Link</button>
+
+    <button id="btn-guest-view" onclick="openGuestViewModal()"
+            title="Share a read-only link for guests to see fact-checks and key facts">🔗 Share View</button>
+
+    <span style="display:inline-flex; flex-direction:column; align-items:center; flex-shrink:0;">
+      <button id="btn-kb-seed" onclick="openKBModal()"
+              title="Upload details of your project here e.g. project charter, SOW, schedule">📚 KB Seed</button>
+      <span style="font-size:0.55rem; color:var(--mm-text-muted); line-height:1; margin-top:1px; white-space:nowrap;">Charter · SOW · Schedule</span>
+    </span>
+
+    <button id="btn-project" onclick="openProjectModal()"
+            title="Set up or load a project brief">📋 Project</button>
+    <span id="active-project-name" style="font-size:0.72rem; color:var(--mm-primary-mid); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">No project selected</span>
 
     <span class="elapsed" id="elapsed"></span>
   </div>
 
-  <!-- RMS level meter -->
+  <!-- ── RMS level meter ─────────────────────────────────────────────────── -->
   <div id="rms-meter-wrap">
     <span class="rms-label">MIC</span>
     <div class="rms-track">
@@ -259,13 +1035,41 @@
     <span class="rms-stats" id="rms-stats"></span>
   </div>
 
-  <!-- Error banner -->
-  <div id="error-banner" class="error-banner" style="display:none">
-    <span id="error-text"></span>
-    <button onclick="clearError()">✕</button>
+  <!-- ── Compact warning banner ─────────────────────────────────────────── -->
+  <div id="warning-banner">
+    <div class="warn-row">
+      <span class="warn-icon">⚠</span>
+      <span id="warn-summary"></span>
+      <button id="btn-warn-toggle" onclick="toggleWarnDetails()">Details ▾</button>
+    </div>
+    <div id="warn-details">
+      <ul id="warning-list"></ul>
+    </div>
   </div>
 
-  <!-- Live transcript -->
+  <!-- ── Error banner ──────────────────────────────────────────────────── -->
+  <div id="error-banner" class="error-banner" style="display:none">
+    <span id="error-text"></span>
+    <button onclick="clearError()" title="Dismiss">✕</button>
+  </div>
+
+  <!-- ── [Them] audio warning banner (S8-009) ─────────────────────────── -->
+  <div id="system-audio-warn" class="error-banner" style="display:none; background:#FFF3E0; border-color:#F57C00;">
+    <span id="system-audio-warn-text" style="color:#E65100;"></span>
+    <button onclick="dismissSystemAudioWarn()" title="Dismiss" style="color:#E65100;">✕</button>
+  </div>
+
+  <!-- ── Guest phone mic banner ─────────────────────────────────────────── -->
+  <div id="guest-banner">
+    <span>👤</span>
+    <span id="guest-banner-text">Guest connected</span>
+    <span style="margin-left:auto;opacity:0.6;font-size:0.68rem;color:var(--mm-text-muted)">Phone mic active</span>
+  </div>
+
+  <!-- ── Content panels: Transcript 40% | Coaching 30% | Suggestions 30% -->
+  <div class="panels-row">
+
+  <!-- ── Panel 1: Live Transcript ─────────────────────────────────────── -->
   <div class="transcript-pane">
     <div class="pane-header">
       Live Transcript
@@ -278,108 +1082,1309 @@
         Chunks appear every 3 seconds, transcribed locally by Whisper.
       </div>
     </div>
+    <!-- ── Manual [Them] transcript input ─────────────────────────── -->
+    <div class="them-input-bar">
+      <input  type="text"
+              id="them-text-input"
+              class="them-text-field"
+              placeholder="Paste [Them] transcript here"
+              autocomplete="off" />
+      <button id="them-submit-btn"
+              class="them-submit-btn"
+              onclick="submitThemTranscript()">Submit</button>
+    </div>
   </div>
+
+  <!-- ── Panel 2: Live Coaching ────────────────────────────────────────── -->
+  <div class="coaching-panel">
+    <div class="pane-header">🧠 Live Coaching</div>
+    <div id="coaching-feed">
+      <!-- S8-002: Action Items section -->
+      <div id="mm-action-items-section">
+        <div class="mm-capture-header" style="color:var(--mm-primary); font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:0.5rem 0 0.3rem 0;">📋 ACTION ITEMS</div>
+        <div id="mm-action-items-empty" class="coaching-placeholder" style="font-size:0.73rem; padding:0.3rem 0; margin:0;">No action items captured yet</div>
+        <div id="mm-action-items-list"></div>
+      </div>
+      <!-- S8-002: Decisions section -->
+      <div id="mm-decisions-section" style="margin-top:0.4rem;">
+        <div class="mm-capture-header" style="color:var(--mm-primary); font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:0.3rem 0;">✅ DECISIONS</div>
+        <div id="mm-decisions-empty" class="coaching-placeholder" style="font-size:0.73rem; padding:0.3rem 0; margin:0;">No decisions captured yet</div>
+        <div id="mm-decisions-list"></div>
+      </div>
+      <!-- S8-003: Scope Alerts section -->
+      <div id="mm-scope-alerts-section" style="margin-top:0.4rem;">
+        <div class="mm-capture-header" style="color:var(--mm-flag); font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:0.3rem 0;">🚨 SCOPE ALERTS</div>
+        <div id="mm-scope-alerts-empty" class="coaching-placeholder" style="font-size:0.73rem; padding:0.3rem 0; margin:0;">No scope issues detected</div>
+        <div id="mm-scope-alerts-list"></div>
+      </div>
+      <!-- S8-004: Timeline Alerts section -->
+      <div id="mm-timeline-alerts-section" style="margin-top:0.4rem;">
+        <div class="mm-capture-header" style="color:var(--mm-accent); font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:0.3rem 0;">⏰ TIMELINE ALERTS</div>
+        <div id="mm-timeline-alerts-empty" class="coaching-placeholder" style="font-size:0.73rem; padding:0.3rem 0; margin:0;">No timeline risks detected</div>
+        <div id="mm-timeline-alerts-list"></div>
+      </div>
+      <!-- Coaching alerts -->
+      <div style="margin-top:0.6rem; border-top:1px solid var(--mm-border); padding-top:0.4rem;">
+        <div class="coaching-placeholder" id="coaching-placeholder">
+          <strong>No coaching alerts yet</strong>
+          Start speaking — real-time AI coaching<br>
+          prompts will appear here.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Panel 3: AI Key Facts ────────────────────────────────────────── -->
+  <div class="suggestions-pane">
+    <div class="pane-header">📌 Key Facts</div>
+    <div id="suggestions-list">
+      <div class="suggestions-placeholder">
+        Start speaking — key facts<br>
+        (decision, owner, deadline, risk,<br>
+        action) auto-update every 30s.
+      </div>
+    </div>
+    <!-- btn-suggest kept in DOM (hidden) so JS state toggles don't error -->
+    <button id="btn-suggest" style="display:none" disabled></button>
+  </div>
+
+  </div><!-- /.panels-row -->
 
 </main>
 
-<script>
-  // ── State ─────────────────────────────────────────────────────────────────
-  let ws                    = null;
-  let wsReconnectTimer      = null;
-  let meetingActive         = false;
-  let elapsedSecs           = 0;
-  let elapsedTimer          = null;
-  let rmsWatchdogTimer      = null;
-  let loadingCountdownTimer = null;
+<!-- ── Guest PIN modal ────────────────────────────────────────────────────── -->
+<div id="guest-modal" style="
+  display:none; position:fixed; inset:0; background:#00000066;
+  z-index:9000; align-items:center; justify-content:center;
+">
+  <div style="
+    background:var(--mm-surface); border:1px solid var(--mm-primary); border-radius:14px;
+    padding:2rem 2rem 1.5rem; max-width:340px; width:90%;
+    display:flex; flex-direction:column; gap:1rem;
+  ">
+    <div style="font-size:0.8rem; color:var(--mm-primary); font-weight:600; letter-spacing:0.04em; text-transform:uppercase;">
+      Guest Phone Mic
+    </div>
+    <div style="font-size:3rem; font-weight:800; letter-spacing:0.15em; color:var(--mm-accent); text-align:center;"
+         id="guest-modal-pin">——</div>
+    <div style="font-size:0.78rem; color:var(--mm-text-muted); line-height:1.5;">
+      Share this URL or PIN with your guest. They open it on their phone and speak directly into the meeting.
+    </div>
+    <div style="
+      background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+      padding:0.5rem 0.75rem; font-size:0.75rem; color:var(--mm-text-muted); word-break:break-all;
+    " id="guest-modal-url"></div>
+    <button onclick="copyGuestUrl(this)" style="
+      background:var(--mm-accent); color:#FFFFFF; border:none; border-radius:7px;
+      padding:0.55rem 1rem; font-size:0.85rem; font-weight:600; cursor:pointer;
+      transition:background 0.15s;
+    ">Copy Link</button>
+    <button onclick="closeGuestModal()" style="
+      background:none; border:1px solid var(--mm-border); color:var(--mm-text-muted); border-radius:7px;
+      padding:0.5rem 1rem; font-size:0.82rem; cursor:pointer;
+    ">Close</button>
+  </div>
+</div>
 
-  const MODEL_LOAD_SECS = { tiny: 3, base: 5, small: 12, medium: 55, large: 100 };
+<!-- ── Guest Viewer modal ──────────────────────────────────────────────── -->
+<div id="guest-view-modal" style="
+  display:none; position:fixed; inset:0; background:#00000066;
+  z-index:9050; align-items:center; justify-content:center;
+">
+  <div style="
+    background:var(--mm-surface); border:1px solid var(--mm-primary); border-radius:14px;
+    padding:2rem 2rem 1.5rem; max-width:400px; width:90%;
+    display:flex; flex-direction:column; gap:1rem;
+  ">
+    <div style="font-size:0.8rem; color:var(--mm-primary); font-weight:600; letter-spacing:0.04em; text-transform:uppercase;">
+      Share Guest View
+    </div>
+    <div style="font-size:0.78rem; color:var(--mm-text-muted); line-height:1.5;">
+      Share this link with guests. They can see live fact-checks and key facts — read only, no audio access.
+    </div>
+    <div style="
+      background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+      padding:0.5rem 0.75rem; font-size:0.75rem; color:var(--mm-text); word-break:break-all;
+      user-select:all;
+    " id="guest-view-url">—</div>
+    <div id="guest-view-copy-msg" style="
+      font-size:0.75rem; color:var(--mm-ok); display:none; text-align:center;
+    ">Copied to clipboard</div>
+    <div style="font-size:0.78rem; color:var(--mm-text-muted);" id="guest-view-count">
+      0 guests connected
+    </div>
+    <div style="display:flex; gap:0.5rem;">
+      <button onclick="copyGuestViewUrl(this)" style="
+        background:var(--mm-accent); color:#FFFFFF; border:none; border-radius:7px;
+        padding:0.55rem 1rem; font-size:0.82rem; font-weight:600; cursor:pointer;
+        flex:1; transition:background 0.15s;
+      ">Copy Link</button>
+      <button onclick="revokeGuestView()" id="btn-revoke-view" style="
+        background:none; border:1px solid var(--mm-flag); color:var(--mm-flag); border-radius:7px;
+        padding:0.55rem 1rem; font-size:0.82rem; cursor:pointer;
+      ">Revoke</button>
+    </div>
+    <button onclick="closeGuestViewModal()" style="
+      background:none; border:1px solid var(--mm-border); color:var(--mm-text-muted); border-radius:7px;
+      padding:0.45rem 1rem; font-size:0.78rem; cursor:pointer;
+    ">Close</button>
+  </div>
+</div>
+
+<!-- ── KB Seed modal ────────────────────────────────────────────────────── -->
+<div id="kb-modal" style="
+  display:none; position:fixed; inset:0; background:#00000066;
+  z-index:9100; align-items:center; justify-content:center;
+">
+  <div style="
+    background:var(--mm-surface); border:1px solid var(--mm-primary); border-radius:14px;
+    padding:2rem; max-width:480px; width:92%;
+    display:flex; flex-direction:column; gap:1rem;
+  ">
+    <div style="font-size:0.8rem; color:var(--mm-primary); font-weight:600; letter-spacing:0.04em; text-transform:uppercase;">
+      Knowledge Base Seed
+    </div>
+    <div id="kb-global-status" style="
+      font-size:0.75rem; line-height:1.5; padding:0.5rem 0.7rem;
+      background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+      display:none;
+    ">
+      <span id="kb-pm-count"></span><br>
+      <span id="kb-project-count" style="color:var(--mm-text-muted);"></span><br>
+      <span id="kb-total-count" style="color:var(--mm-text-muted); font-weight:600;"></span>
+      <span style="float:right; display:flex; gap:0.5rem; align-items:center;">
+        <a href="#" id="kb-refresh-link" onclick="event.preventDefault(); loadKBGlobalStatus();" style="font-size:0.7rem; color:var(--mm-primary);">Refresh</a>
+        <button id="kb-reseed-btn" onclick="forceReseedPMKB()" style="
+          background:none; border:1px solid var(--mm-border); color:var(--mm-text-muted); border-radius:5px;
+          padding:2px 8px; font-size:0.68rem; cursor:pointer;
+        ">Force Reseed</button>
+      </span>
+    </div>
+    <div style="font-size:0.78rem; color:var(--mm-text-muted); line-height:1.5;">
+      Paste pre-meeting context (people, budgets, dates) so MeetingMind can fact-check during meetings.
+    </div>
+    <textarea id="kb-textarea" placeholder="e.g. Budget over $10,000 needs HH approval.&#10;Sarah handles legal reviews.&#10;ACOS above 6% is a red flag." style="
+      background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+      padding:0.75rem; font-size:0.82rem; color:var(--mm-text); resize:vertical;
+      min-height:120px; font-family:inherit; width:100%; box-sizing:border-box;
+    "></textarea>
+    <div style="display:flex; gap:0.5rem; align-items:center;">
+      <label style="
+        background:var(--mm-bg); color:var(--mm-text-muted); border:1px solid var(--mm-border); border-radius:7px;
+        padding:0.45rem 0.75rem; font-size:0.78rem; cursor:pointer;
+      ">
+        📄 Upload .txt/.md
+        <input type="file" accept=".txt,.md" onchange="handleKBFile(event)" style="display:none;">
+      </label>
+      <span id="kb-file-name" style="font-size:0.75rem; color:var(--mm-text-muted);"></span>
+    </div>
+    <div id="kb-status" style="
+      font-size:0.78rem; color:var(--mm-text-muted); display:none;
+      background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+      padding:0.6rem 0.75rem; line-height:1.6;
+    "></div>
+    <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+      <button onclick="closeKBModal()" style="
+        background:none; border:1px solid var(--mm-border); color:var(--mm-text-muted); border-radius:7px;
+        padding:0.5rem 1rem; font-size:0.82rem; cursor:pointer;
+      ">Close</button>
+      <button id="kb-submit-btn" onclick="submitKBSeed()" style="
+        background:var(--mm-accent); color:white; border:none; border-radius:7px;
+        padding:0.5rem 1rem; font-size:0.82rem; font-weight:600; cursor:pointer;
+      ">Seed KB</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Meeting Summary modal — S8-005 PM-grade ──────────────────────────── -->
+<div id="summary-modal" style="
+  display:none; position:fixed; inset:0; background:#00000066;
+  z-index:9000; align-items:center; justify-content:center;
+">
+  <div style="
+    background:var(--mm-surface); border:1px solid var(--mm-border); border-radius:14px;
+    padding:2rem; max-width:640px; width:94%;
+    display:flex; flex-direction:column; gap:1rem;
+    max-height:85vh; overflow-y:auto;
+  ">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:0.85rem; color:var(--mm-primary); font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">
+        PM Meeting Summary
+      </div>
+      <button onclick="closeSummaryModal()" style="background:none; border:none; color:var(--mm-text-muted); font-size:1.2rem; cursor:pointer;">&times;</button>
+    </div>
+    <div id="summary-content" style="font-size:0.82rem; color:var(--mm-text); line-height:1.6;">
+    </div>
+    <div style="display:flex; gap:0.5rem; justify-content:flex-end; align-items:center;">
+      <span id="summary-export-hint" style="font-size:0.68rem; color:var(--mm-text-muted); margin-right:auto;">
+        Paste into Notion, Confluence, or your PM tool
+      </span>
+      <button id="summary-copy-md-btn" onclick="copySummaryMarkdown(this)" style="
+        background:var(--mm-bg); color:var(--mm-text-muted); border:1px solid var(--mm-border); border-radius:7px;
+        padding:0.5rem 1rem; font-size:0.82rem; cursor:pointer;
+      ">Copy as Markdown</button>
+      <button onclick="closeSummaryModal()" style="
+        background:var(--mm-accent); color:white; border:none; border-radius:7px;
+        padding:0.5rem 1rem; font-size:0.82rem; font-weight:600; cursor:pointer;
+      ">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Role Selector modal ──────────────────────────────────────────────── -->
+<!-- ── Project Setup modal — S8-001 ─────────────────────────────────────── -->
+<div id="project-modal" style="
+  display:none; position:fixed; inset:0; background:#00000088;
+  z-index:9200; align-items:center; justify-content:center;
+">
+  <div style="
+    background:var(--mm-surface); border:1px solid var(--mm-primary); border-radius:14px;
+    padding:1.5rem 2rem; max-width:600px; width:94%;
+    display:flex; flex-direction:column; gap:0.75rem;
+    max-height:88vh; overflow-y:auto;
+  ">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:1.1rem; font-weight:700; color:var(--mm-text);">Project Setup</div>
+      <button onclick="closeProjectModal()" style="background:none; border:none; color:var(--mm-text-muted); font-size:1.2rem; cursor:pointer;">&times;</button>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex; gap:0; border-bottom:1px solid var(--mm-border);">
+      <button id="proj-tab-upload" onclick="showProjectTab('upload')" style="
+        flex:1; padding:0.5rem; border:none; background:none; color:var(--mm-accent);
+        font-weight:600; font-size:0.85rem; cursor:pointer; border-bottom:2px solid var(--mm-accent);
+      ">Upload Documents</button>
+      <button id="proj-tab-new" onclick="showProjectTab('new')" style="
+        flex:1; padding:0.5rem; border:none; background:none; color:var(--mm-text-muted);
+        font-weight:400; font-size:0.85rem; cursor:pointer; border-bottom:2px solid transparent;
+      ">Manual Entry</button>
+      <button id="proj-tab-load" onclick="showProjectTab('load')" style="
+        flex:1; padding:0.5rem; border:none; background:none; color:var(--mm-text-muted);
+        font-weight:400; font-size:0.85rem; cursor:pointer; border-bottom:2px solid transparent;
+      ">Load Project</button>
+    </div>
+
+    <!-- Tab 1: Upload Documents -->
+    <div id="proj-upload-tab">
+      <div id="upload-drop-zone" style="
+        border:2px dashed var(--mm-border); border-radius:12px; padding:2rem 1rem;
+        text-align:center; cursor:pointer; transition:border-color 0.2s, background 0.2s;
+        background:var(--mm-bg);
+      " ondragover="event.preventDefault(); this.style.borderColor='var(--mm-primary)'; this.style.background='#ffffff08';"
+        ondragleave="this.style.borderColor='var(--mm-border)'; this.style.background='var(--mm-bg)';"
+        ondrop="handleFileDrop(event)"
+        onclick="document.getElementById('upload-file-input').click()">
+        <div style="font-size:1.8rem; margin-bottom:0.5rem;">📄</div>
+        <div style="font-size:0.92rem; font-weight:600; color:var(--mm-text);">Drop your project documents here</div>
+        <div style="font-size:0.75rem; color:var(--mm-text-muted); margin-top:0.3rem;">Supports .md, .txt, .docx, .pdf — upload multiple files</div>
+        <button onclick="event.stopPropagation(); document.getElementById('upload-file-input').click();" style="
+          margin-top:0.75rem; background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+          padding:0.4rem 1rem; color:var(--mm-text); font-size:0.82rem; cursor:pointer;">Browse Files</button>
+        <input id="upload-file-input" type="file" accept=".md,.txt,.docx,.pdf" multiple style="display:none;"
+               onchange="handleFileSelect(this.files)">
+      </div>
+
+      <div id="upload-file-list" style="display:flex; flex-direction:column; gap:0.3rem; margin-top:0.5rem;"></div>
+
+      <div id="upload-status" style="display:none; text-align:center; padding:0.75rem; font-size:0.85rem; color:var(--mm-text);"></div>
+
+      <button id="btn-extract" onclick="extractBrief()" disabled style="
+        background:var(--mm-accent); color:white; border:none; border-radius:9px;
+        padding:0.65rem 1rem; font-size:0.9rem; font-weight:600; cursor:pointer;
+        width:100%; margin-top:0.75rem; opacity:0.5;">Extract Project Brief</button>
+    </div>
+
+    <!-- Tab 2: Manual Entry -->
+    <div id="proj-new-tab" style="display:none;">
+      <!-- Missing fields checklist (shown after extraction) -->
+      <div id="missing-fields-panel" style="
+        display:none; background:#FFF8E1; border-left:3px solid var(--mm-notable, #FFB300);
+        border-radius:0 7px 7px 0; padding:0.6rem 0.75rem; margin-bottom:0.75rem;
+      ">
+        <div style="font-size:0.82rem; font-weight:700; color:#5D4037; margin-bottom:0.4rem;">⚠️ Missing Fields — please complete before saving</div>
+        <div id="missing-fields-list" style="display:flex; flex-direction:column; gap:0.25rem;"></div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:0.6rem;">
+        <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Project Name *</label>
+        <input id="proj-name" type="text" placeholder="e.g. Project Phoenix" style="
+          background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+          padding:0.45rem 0.6rem; color:var(--mm-text); font-size:0.85rem; width:100%; box-sizing:border-box;">
+
+        <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Project Type</label>
+        <select id="proj-type" style="
+          background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+          padding:0.45rem 0.6rem; color:var(--mm-text); font-size:0.85rem; width:100%; box-sizing:border-box;">
+          <option value="AI Project">AI Project</option>
+          <option value="Software" selected>Software</option>
+          <option value="Infrastructure">Infrastructure</option>
+          <option value="Business Change">Business Change</option>
+          <option value="Other">Other</option>
+        </select>
+
+        <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Methodologies</label>
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+          <label style="font-size:0.82rem; color:var(--mm-text); cursor:pointer;"><input type="checkbox" id="meth-pmbok" value="PMBOK"> PMBOK</label>
+          <label style="font-size:0.82rem; color:var(--mm-text); cursor:pointer;"><input type="checkbox" id="meth-scrum" value="Scrum"> Scrum</label>
+          <label style="font-size:0.82rem; color:var(--mm-text); cursor:pointer;"><input type="checkbox" id="meth-cpmai" value="CPMAI" onchange="toggleCpmaiPhase()"> CPMAI</label>
+        </div>
+
+        <div id="cpmai-phase-wrap" style="display:none;">
+          <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">CPMAI Phase</label>
+          <select id="proj-cpmai-phase" style="
+            background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+            padding:0.45rem 0.6rem; color:var(--mm-text); font-size:0.85rem; width:100%; box-sizing:border-box;">
+            <option value="Business Understanding">Business Understanding</option>
+            <option value="Data Understanding">Data Understanding</option>
+            <option value="Data Preparation">Data Preparation</option>
+            <option value="Modeling">Modeling</option>
+            <option value="Evaluation">Evaluation</option>
+            <option value="Deployment">Deployment</option>
+          </select>
+        </div>
+
+        <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Objectives *</label>
+        <textarea id="proj-objectives" rows="2" placeholder="What does success look like?" style="
+          background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+          padding:0.45rem 0.6rem; color:var(--mm-text); font-size:0.85rem; width:100%; box-sizing:border-box; resize:vertical;"></textarea>
+
+        <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Approved Scope (Enter to add)</label>
+        <div id="scope-tags" style="display:flex; flex-wrap:wrap; gap:4px; min-height:28px;"></div>
+        <input id="scope-input" type="text" placeholder="Type scope item + Enter" style="
+          background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+          padding:0.35rem 0.6rem; color:var(--mm-text); font-size:0.82rem; width:100%; box-sizing:border-box;"
+          onkeydown="handleTagInput(event, 'scope-tags')">
+
+        <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Out of Scope (Enter to add)</label>
+        <div id="oos-tags" style="display:flex; flex-wrap:wrap; gap:4px; min-height:28px;"></div>
+        <input id="oos-input" type="text" placeholder="Type out-of-scope item + Enter" style="
+          background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+          padding:0.35rem 0.6rem; color:var(--mm-text); font-size:0.82rem; width:100%; box-sizing:border-box;"
+          onkeydown="handleTagInput(event, 'oos-tags')">
+
+        <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Success Criteria</label>
+        <textarea id="proj-success" rows="2" placeholder="How will you measure success?" style="
+          background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+          padding:0.45rem 0.6rem; color:var(--mm-text); font-size:0.85rem; width:100%; box-sizing:border-box; resize:vertical;"></textarea>
+
+        <div style="display:flex; gap:0.75rem;">
+          <div style="flex:1;">
+            <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Budget Total</label>
+            <input id="proj-budget-total" type="number" placeholder="0" style="
+              background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+              padding:0.35rem 0.6rem; color:var(--mm-text); font-size:0.82rem; width:100%; box-sizing:border-box;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Budget Remaining</label>
+            <input id="proj-budget-remaining" type="number" placeholder="0" style="
+              background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+              padding:0.35rem 0.6rem; color:var(--mm-text); font-size:0.82rem; width:100%; box-sizing:border-box;">
+          </div>
+          <div style="width:80px;">
+            <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Currency</label>
+            <input id="proj-currency" type="text" value="USD" style="
+              background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+              padding:0.35rem 0.6rem; color:var(--mm-text); font-size:0.82rem; width:100%; box-sizing:border-box;">
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.75rem;">
+          <div style="flex:1;">
+            <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Start Date</label>
+            <input id="proj-start" type="date" style="
+              background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+              padding:0.35rem 0.6rem; color:var(--mm-text); font-size:0.82rem; width:100%; box-sizing:border-box;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">End Date</label>
+            <input id="proj-end" type="date" style="
+              background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+              padding:0.35rem 0.6rem; color:var(--mm-text); font-size:0.82rem; width:100%; box-sizing:border-box;">
+          </div>
+        </div>
+
+        <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Milestones</label>
+        <div id="milestone-rows"></div>
+        <button onclick="addMilestoneRow()" style="
+          background:none; border:1px dashed var(--mm-border); color:var(--mm-text-muted); border-radius:7px;
+          padding:0.3rem 0.6rem; font-size:0.78rem; cursor:pointer; width:100%;">+ Add Milestone</button>
+
+        <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Team Members</label>
+        <div id="team-rows"></div>
+        <button onclick="addTeamRow()" style="
+          background:none; border:1px dashed var(--mm-border); color:var(--mm-text-muted); border-radius:7px;
+          padding:0.3rem 0.6rem; font-size:0.78rem; cursor:pointer; width:100%;">+ Add Team Member</button>
+
+        <label style="font-size:0.78rem; color:var(--mm-text-muted); font-weight:600;">Known Risks (Enter to add)</label>
+        <div id="risk-tags" style="display:flex; flex-wrap:wrap; gap:4px; min-height:28px;"></div>
+        <input id="risk-input" type="text" placeholder="Type risk + Enter" style="
+          background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:7px;
+          padding:0.35rem 0.6rem; color:var(--mm-text); font-size:0.82rem; width:100%; box-sizing:border-box;"
+          onkeydown="handleTagInput(event, 'risk-tags')">
+
+        <button onclick="saveProject()" style="
+          background:var(--mm-accent); color:white; border:none; border-radius:9px;
+          padding:0.65rem 1rem; font-size:0.9rem; font-weight:600; cursor:pointer;
+          width:100%; margin-top:0.5rem;">Save Project</button>
+      </div>
+    </div>
+
+    <!-- Tab 2: Load Project -->
+    <div id="proj-load-tab" style="display:none;">
+      <div id="proj-list" style="display:flex; flex-direction:column; gap:0.5rem; min-height:60px;">
+        <div style="color:var(--mm-text-muted); font-size:0.82rem; text-align:center; padding:1rem;">Loading...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ── State ────────────────────────────────────────────────────────────────
+  let ws                   = null;
+  let wsReconnectTimer     = null;
+  let meetingActive        = false;
+  let elapsedSecs          = 0;
+  let elapsedTimer         = null;
+  let transcriptBuffer     = [];
+  let warnDetailsOpen      = false;
+  let allDevices           = [];   // cached for inline-warn check
+  let _recommendedSystem   = null; // stored from /devices for 1:1 Mode auto-select
+  let _oneToOneMode        = false;
+  let rmsWatchdogTimer     = null; // fires if no RMS data for 3 s during a meeting
+  let loadingCountdownTimer = null;
+  let loadingModel          = null;
+  let autoSuggestTimer     = null;
+  let _guestPin            = null;   // PIN from last /guest/session call
+  let _isFetchingSuggestions = false;
+  let _coachingCards = {};   // coaching_event_id → card DOM element
+  let _reconnectAttempt     = 0;     // index into _WS_BACKOFF array
+  let _keepaliveTimer       = null;  // setInterval checking for server pings
+  let _lastPing             = 0;     // timestamp of last server ping received
+  let _selectedRole         = null;  // EA | PM | Sales | Custom
+
+  const _WS_BACKOFF         = [2, 4, 8, 16, 30]; // reconnect delays in seconds
+  const _PING_CHECK_INTERVAL = 5_000;  // how often we check for missing pings
+  const _PING_TIMEOUT       = 45_000;  // reconnect if no server ping for 45 s
+
+  const AUTO_SUGGEST_MS         = 30_000;  // trigger every 30 s
+  const AUTO_SUGGEST_MIN_CHUNKS = 3;       // only once ≥3 transcript chunks exist
+
+  const MODEL_LOAD_SECS = { "tiny.en": 3, base: 5, small: 12, medium: 55, large: 100 };
+
+  const MAX_BUFFER_CHUNKS = 10;
 
   const API    = `${location.protocol}//${location.host}`;
   const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/transcribe`;
 
-  // ── DOM refs ──────────────────────────────────────────────────────────────
-  const feed         = document.getElementById('transcript-feed');
-  const btnStart     = document.getElementById('btn-start');
-  const btnStop      = document.getElementById('btn-stop');
-  const statusDot    = document.getElementById('status-dot');
-  const statusLabel  = document.getElementById('status-label');
-  const elapsedEl    = document.getElementById('elapsed');
-  const modelSel     = document.getElementById('model-select');
-  const micSel       = document.getElementById('mic-select');
-  const errorBanner  = document.getElementById('error-banner');
-  const errorText    = document.getElementById('error-text');
-  const rmsMeterWrap = document.getElementById('rms-meter-wrap');
+  // ── DOM refs ─────────────────────────────────────────────────────────────
+  const feed           = document.getElementById('transcript-feed');
+  const suggList       = document.getElementById('suggestions-list');
+  const btnStart       = document.getElementById('btn-start');
+  const btnStop        = document.getElementById('btn-stop');
+  const btnSuggest     = document.getElementById('btn-suggest');
+  const btnReconnect   = document.getElementById('btn-reconnect');
+  const statusDot      = document.getElementById('status-dot');
+  const statusLabel    = document.getElementById('status-label');
+  const elapsedEl      = document.getElementById('elapsed');
+  const modelSel       = document.getElementById('model-select');
+  const micSel         = document.getElementById('mic-select');
+  const systemSel      = document.getElementById('system-select');
+  const errorBanner    = document.getElementById('error-banner');
+  const errorText      = document.getElementById('error-text');
+  const warningBanner  = document.getElementById('warning-banner');
+  const warnSummaryEl  = document.getElementById('warn-summary');
+  const warnDetailsEl  = document.getElementById('warn-details');
+  const warningList    = document.getElementById('warning-list');
+  const micVirtualWarn = document.getElementById('mic-virtual-warning');
+  const sysVirtualWarn = document.getElementById('sys-virtual-warning');
 
-  // ── Error ─────────────────────────────────────────────────────────────────
-  function showError(msg) { errorText.textContent = msg; errorBanner.style.display = 'flex'; }
-  function clearError()   { errorBanner.style.display = 'none'; errorText.textContent = ''; }
+  // ── Role — hardcoded PM ──────────────────────────────────────────────────
+  _selectedRole = 'PM';
 
-  // ── Status ────────────────────────────────────────────────────────────────
-  function setStatus(state) {
-    const map = {
-      connecting:   ['connecting',   'Connecting…'],
-      connected:    ['connected',    'Connected'],
-      loading:      ['connecting',   '◌ Loading Whisper…'],
-      live:         ['live',         '● Live'],
-      disconnected: ['disconnected', 'Disconnected'],
-      error:        ['error',        'Connection error'],
-    };
-    const [dot, label] = map[state] || ['', state];
-    statusDot.className     = `status-dot ${dot}`;
-    statusLabel.textContent = label;
-    document.getElementById('btn-reconnect').style.display =
-      (state === 'disconnected' || state === 'error') ? 'inline-flex' : 'none';
+  // ── Project Brief — S8-001 ──────────────────────────────────────────────
+  let _activeProject = null;
+  const projectModal     = document.getElementById('project-modal');
+  const activeProjectEl  = document.getElementById('active-project-name');
+  const cpmaiBadge       = document.getElementById('cpmai-badge');
+
+  let _uploadedFiles = [];  // files queued for extraction
+  let _extractionMissing = [];  // missing fields from last extraction
+
+  function openProjectModal() {
+    projectModal.style.display = 'flex';
+    showProjectTab('upload');
+  }
+  function closeProjectModal() {
+    projectModal.style.display = 'none';
+  }
+  function showProjectTab(tab) {
+    const uploadTab = document.getElementById('proj-upload-tab');
+    const newTab    = document.getElementById('proj-new-tab');
+    const loadTab   = document.getElementById('proj-load-tab');
+    const btnUpload = document.getElementById('proj-tab-upload');
+    const btnNew    = document.getElementById('proj-tab-new');
+    const btnLoad   = document.getElementById('proj-tab-load');
+    const allTabs   = [uploadTab, newTab, loadTab];
+    const allBtns   = [btnUpload, btnNew, btnLoad];
+    // Hide all, deactivate all
+    allTabs.forEach(t => t.style.display = 'none');
+    allBtns.forEach(b => { b.style.color = 'var(--mm-text-muted)'; b.style.fontWeight = '400'; b.style.borderBottom = '2px solid transparent'; });
+    // Show selected
+    const activeTab = tab === 'upload' ? uploadTab : tab === 'new' ? newTab : loadTab;
+    const activeBtn = tab === 'upload' ? btnUpload : tab === 'new' ? btnNew : btnLoad;
+    activeTab.style.display = '';
+    activeBtn.style.color = 'var(--mm-accent)';
+    activeBtn.style.fontWeight = '600';
+    activeBtn.style.borderBottom = '2px solid var(--mm-accent)';
+    if (tab === 'load') loadProjectList();
   }
 
-  // ── WebSocket ─────────────────────────────────────────────────────────────
+  // ── Upload Documents helpers ──────────────────────────────────────────────
+  function handleFileDrop(e) {
+    e.preventDefault();
+    const zone = document.getElementById('upload-drop-zone');
+    zone.style.borderColor = 'var(--mm-border)';
+    zone.style.background = 'var(--mm-bg)';
+    if (e.dataTransfer.files.length) handleFileSelect(e.dataTransfer.files);
+  }
+
+  function handleFileSelect(fileList) {
+    const allowed = ['.md', '.txt', '.docx', '.pdf'];
+    for (const f of fileList) {
+      const ext = '.' + f.name.split('.').pop().toLowerCase();
+      if (!allowed.includes(ext)) {
+        showError('Unsupported file: ' + f.name + '. Allowed: .md, .txt, .docx, .pdf');
+        setTimeout(clearError, 4000);
+        continue;
+      }
+      if (!_uploadedFiles.some(u => u.name === f.name)) _uploadedFiles.push(f);
+    }
+    renderUploadFileList();
+  }
+
+  function renderUploadFileList() {
+    const list = document.getElementById('upload-file-list');
+    const btn = document.getElementById('btn-extract');
+    if (_uploadedFiles.length === 0) {
+      list.innerHTML = '';
+      btn.disabled = true; btn.style.opacity = '0.5';
+      return;
+    }
+    btn.disabled = false; btn.style.opacity = '1';
+    list.innerHTML = _uploadedFiles.map((f, i) => `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:6px; padding:0.3rem 0.6rem;">
+        <span style="font-size:0.82rem; color:var(--mm-text);">📄 ${f.name}</span>
+        <button onclick="_uploadedFiles.splice(${i},1); renderUploadFileList();" style="background:none; border:none; color:var(--mm-text-muted); cursor:pointer; font-size:0.9rem;">&times;</button>
+      </div>
+    `).join('');
+  }
+
+  async function extractBrief() {
+    if (_uploadedFiles.length === 0) return;
+    const btn = document.getElementById('btn-extract');
+    const status = document.getElementById('upload-status');
+    btn.disabled = true; btn.style.opacity = '0.5';
+    status.style.display = ''; status.innerHTML = '<span style="animation:pulse 1s infinite;">⏳ Analysing documents...</span>';
+
+    const form = new FormData();
+    _uploadedFiles.forEach(f => form.append('files', f));
+
+    try {
+      const res = await fetch(`${API}/project/extract`, { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) {
+        status.innerHTML = '<span style="color:#ff5c5c;">❌ ' + (data.error || 'Extraction failed') + '</span>';
+        btn.disabled = false; btn.style.opacity = '1';
+        return;
+      }
+      const n = data.files_processed ? data.files_processed.length : 0;
+      status.innerHTML = `<span style="color:#4CAF50;">✅ Extracted ${data.found_count} fields from ${n} document(s)</span>`;
+      // Pre-fill form and switch to Manual Entry tab after 1.5s
+      setTimeout(() => {
+        prefillForm(data.extracted, data.missing_fields);
+        showProjectTab('new');
+        status.style.display = 'none';
+        btn.disabled = false; btn.style.opacity = '1';
+      }, 1500);
+    } catch (err) {
+      status.innerHTML = '<span style="color:#ff5c5c;">❌ Network error: ' + err.message + '</span>';
+      btn.disabled = false; btn.style.opacity = '1';
+    }
+  }
+
+  const _FIELD_LABELS = {
+    project_name: 'Project Name', project_type: 'Project Type',
+    methodology: 'Methodologies', cpmai_phase: 'CPMAI Phase',
+    objectives: 'Objectives', scope_items: 'Approved Scope Items',
+    out_of_scope: 'Out of Scope Items', budget_total: 'Total Budget',
+    budget_remaining: 'Remaining Budget', budget_currency: 'Currency',
+    start_date: 'Start Date', end_date: 'End Date',
+    milestones: 'Milestones', team: 'Team Members',
+    risks: 'Known Risks', success_criteria: 'Success Criteria',
+  };
+
+  function addTagProgrammatic(containerId, value) {
+    const container = document.getElementById(containerId);
+    const pill = document.createElement('span');
+    pill.style.cssText = 'display:inline-flex; align-items:center; gap:3px; background:var(--mm-primary-mid); color:white; padding:2px 8px; border-radius:12px; font-size:0.75rem;';
+    pill.innerHTML = value + ' <span onclick="this.parentElement.remove()" style="cursor:pointer; opacity:0.7;">&times;</span>';
+    pill.dataset.value = value;
+    container.appendChild(pill);
+  }
+
+  function prefillForm(data, missing) {
+    _extractionMissing = missing || [];
+
+    // Clear existing form state
+    document.getElementById('scope-tags').innerHTML = '';
+    document.getElementById('oos-tags').innerHTML = '';
+    document.getElementById('risk-tags').innerHTML = '';
+    document.getElementById('milestone-rows').innerHTML = '';
+    document.getElementById('team-rows').innerHTML = '';
+
+    // Simple text/select fields
+    if (data.project_name) document.getElementById('proj-name').value = data.project_name;
+    if (data.project_type) {
+      const sel = document.getElementById('proj-type');
+      for (const opt of sel.options) { if (opt.value === data.project_type) { sel.value = data.project_type; break; } }
+    }
+    if (data.objectives) document.getElementById('proj-objectives').value = data.objectives;
+    if (data.success_criteria) document.getElementById('proj-success').value = data.success_criteria;
+    if (data.budget_total != null) document.getElementById('proj-budget-total').value = data.budget_total;
+    if (data.budget_remaining != null) document.getElementById('proj-budget-remaining').value = data.budget_remaining;
+    if (data.budget_currency) document.getElementById('proj-currency').value = data.budget_currency;
+    if (data.start_date) document.getElementById('proj-start').value = data.start_date;
+    if (data.end_date) document.getElementById('proj-end').value = data.end_date;
+
+    // Methodology checkboxes
+    const meths = data.methodology || [];
+    document.getElementById('meth-pmbok').checked = meths.includes('PMBOK');
+    document.getElementById('meth-scrum').checked = meths.includes('Scrum');
+    document.getElementById('meth-cpmai').checked = meths.includes('CPMAI');
+    toggleCpmaiPhase();
+    if (data.cpmai_phase) {
+      const phSel = document.getElementById('proj-cpmai-phase');
+      for (const opt of phSel.options) { if (opt.value === data.cpmai_phase) { phSel.value = data.cpmai_phase; break; } }
+    }
+
+    // Tag fields
+    (data.scope_items || []).forEach(v => addTagProgrammatic('scope-tags', v));
+    (data.out_of_scope || []).forEach(v => addTagProgrammatic('oos-tags', v));
+    (data.risks || []).forEach(v => addTagProgrammatic('risk-tags', v));
+
+    // Milestones
+    (data.milestones || []).forEach(m => {
+      addMilestoneRow();
+      const rows = document.querySelectorAll('#milestone-rows > div');
+      const last = rows[rows.length - 1];
+      if (m.name) last.querySelector('.ms-name').value = m.name;
+      if (m.date) last.querySelector('.ms-date').value = m.date;
+    });
+
+    // Team
+    (data.team || []).forEach(t => {
+      addTeamRow();
+      const rows = document.querySelectorAll('#team-rows > div');
+      const last = rows[rows.length - 1];
+      if (t.name) last.querySelector('.tm-name').value = t.name;
+      if (t.role) last.querySelector('.tm-role').value = t.role;
+    });
+
+    // Highlight missing fields with amber background
+    const amberBg = '#FFF8E1';
+    const fieldMap = {
+      project_name: 'proj-name', objectives: 'proj-objectives',
+      success_criteria: 'proj-success', budget_total: 'proj-budget-total',
+      budget_remaining: 'proj-budget-remaining', budget_currency: 'proj-currency',
+      start_date: 'proj-start', end_date: 'proj-end',
+    };
+    // Reset all backgrounds first
+    Object.values(fieldMap).forEach(id => { const el = document.getElementById(id); if (el) el.style.background = 'var(--mm-bg)'; });
+    _extractionMissing.forEach(f => {
+      const id = fieldMap[f];
+      if (id) { const el = document.getElementById(id); if (el) el.style.background = amberBg; }
+    });
+
+    // Show missing fields checklist
+    renderMissingFields();
+  }
+
+  function renderMissingFields() {
+    const panel = document.getElementById('missing-fields-panel');
+    const list = document.getElementById('missing-fields-list');
+    if (!_extractionMissing.length) { panel.style.display = 'none'; return; }
+    panel.style.display = '';
+
+    const fieldElMap = {
+      project_name: 'proj-name', objectives: 'proj-objectives',
+      success_criteria: 'proj-success', budget_total: 'proj-budget-total',
+      budget_remaining: 'proj-budget-remaining', start_date: 'proj-start',
+      end_date: 'proj-end', budget_currency: 'proj-currency',
+    };
+
+    list.innerHTML = _extractionMissing.map(f => {
+      const label = _FIELD_LABELS[f] || f;
+      const targetId = fieldElMap[f] || '';
+      return `<label style="display:flex; align-items:center; gap:0.4rem; font-size:0.78rem; color:#5D4037; cursor:pointer;"
+                     onclick="scrollToField('${targetId}', '${f}')">
+        <input type="checkbox" class="missing-cb" data-field="${f}" style="accent-color:var(--mm-accent);" onclick="event.stopPropagation();">
+        ${label}
+      </label>`;
+    }).join('');
+  }
+
+  function scrollToField(elId, fieldName) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Pulse animation
+    el.style.outline = '2px solid var(--mm-accent)';
+    el.style.outlineOffset = '2px';
+    setTimeout(() => { el.style.outline = ''; el.style.outlineOffset = ''; }, 1500);
+    el.focus();
+  }
+
+  // Auto-tick missing field checkboxes when user fills them
+  function setupMissingFieldListeners() {
+    const watchFields = {
+      'proj-name': 'project_name', 'proj-objectives': 'objectives',
+      'proj-success': 'success_criteria', 'proj-budget-total': 'budget_total',
+      'proj-budget-remaining': 'budget_remaining', 'proj-start': 'start_date',
+      'proj-end': 'end_date', 'proj-currency': 'budget_currency',
+    };
+    Object.entries(watchFields).forEach(([elId, field]) => {
+      const el = document.getElementById(elId);
+      if (el) el.addEventListener('input', () => {
+        if (el.value.trim()) {
+          const cb = document.querySelector(`.missing-cb[data-field="${field}"]`);
+          if (cb) cb.checked = true;
+          el.style.background = 'var(--mm-bg)';
+        }
+      });
+    });
+  }
+  setupMissingFieldListeners();
+
+  function toggleCpmaiPhase() {
+    const wrap = document.getElementById('cpmai-phase-wrap');
+    wrap.style.display = document.getElementById('meth-cpmai').checked ? '' : 'none';
+  }
+
+  // Tag input helpers
+  function handleTagInput(e, containerId) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const val = e.target.value.trim();
+    if (!val) return;
+    const container = document.getElementById(containerId);
+    const pill = document.createElement('span');
+    pill.style.cssText = 'display:inline-flex; align-items:center; gap:3px; background:var(--mm-primary-mid); color:white; padding:2px 8px; border-radius:12px; font-size:0.75rem;';
+    pill.innerHTML = val + ' <span onclick="this.parentElement.remove()" style="cursor:pointer; opacity:0.7;">&times;</span>';
+    pill.dataset.value = val;
+    container.appendChild(pill);
+    e.target.value = '';
+  }
+  function getTagValues(containerId) {
+    return Array.from(document.getElementById(containerId).querySelectorAll('span[data-value]'))
+      .map(el => el.dataset.value);
+  }
+
+  // Milestone + team repeating rows
+  function addMilestoneRow() {
+    const wrap = document.getElementById('milestone-rows');
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; gap:0.4rem; margin-bottom:0.3rem; align-items:center;';
+    row.innerHTML = `
+      <input type="text" placeholder="Milestone name" class="ms-name" style="flex:2; background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:5px; padding:0.3rem 0.5rem; color:var(--mm-text); font-size:0.8rem;">
+      <input type="date" class="ms-date" style="flex:1; background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:5px; padding:0.3rem 0.5rem; color:var(--mm-text); font-size:0.8rem;">
+      <button onclick="this.parentElement.remove()" style="background:none; border:none; color:var(--mm-text-muted); cursor:pointer; font-size:0.9rem;">&times;</button>`;
+    wrap.appendChild(row);
+  }
+  function addTeamRow() {
+    const wrap = document.getElementById('team-rows');
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; gap:0.4rem; margin-bottom:0.3rem; align-items:center;';
+    row.innerHTML = `
+      <input type="text" placeholder="Name" class="tm-name" style="flex:1; background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:5px; padding:0.3rem 0.5rem; color:var(--mm-text); font-size:0.8rem;">
+      <input type="text" placeholder="Role" class="tm-role" style="flex:1; background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:5px; padding:0.3rem 0.5rem; color:var(--mm-text); font-size:0.8rem;">
+      <button onclick="this.parentElement.remove()" style="background:none; border:none; color:var(--mm-text-muted); cursor:pointer; font-size:0.9rem;">&times;</button>`;
+    wrap.appendChild(row);
+  }
+
+  async function saveProject() {
+    const name = document.getElementById('proj-name').value.trim();
+    if (!name) { showError('Project name is required.'); setTimeout(clearError, 3000); return; }
+    const objectives = document.getElementById('proj-objectives').value.trim();
+
+    const methodology = [];
+    if (document.getElementById('meth-pmbok').checked) methodology.push('PMBOK');
+    if (document.getElementById('meth-scrum').checked) methodology.push('Scrum');
+    if (document.getElementById('meth-cpmai').checked) methodology.push('CPMAI');
+
+    const cpmai_phase = document.getElementById('meth-cpmai').checked
+      ? document.getElementById('proj-cpmai-phase').value : null;
+
+    const milestones = Array.from(document.querySelectorAll('#milestone-rows > div')).map(row => ({
+      name: row.querySelector('.ms-name').value.trim(),
+      date: row.querySelector('.ms-date').value,
+    })).filter(m => m.name);
+
+    const team = Array.from(document.querySelectorAll('#team-rows > div')).map(row => ({
+      name: row.querySelector('.tm-name').value.trim(),
+      role: row.querySelector('.tm-role').value.trim(),
+    })).filter(t => t.name);
+
+    const payload = {
+      project_name: name,
+      project_type: document.getElementById('proj-type').value,
+      methodology,
+      cpmai_phase,
+      objectives,
+      scope_items: getTagValues('scope-tags'),
+      out_of_scope: getTagValues('oos-tags'),
+      success_criteria: document.getElementById('proj-success').value.trim(),
+      budget_total: parseFloat(document.getElementById('proj-budget-total').value) || null,
+      budget_remaining: parseFloat(document.getElementById('proj-budget-remaining').value) || null,
+      budget_currency: document.getElementById('proj-currency').value.trim() || 'USD',
+      start_date: document.getElementById('proj-start').value || null,
+      end_date: document.getElementById('proj-end').value || null,
+      milestones,
+      team,
+      risks: getTagValues('risk-tags'),
+    };
+
+    try {
+      const res = await fetch(`${API}/project/brief`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('Save failed');
+      const data = await res.json();
+      // Reload the active brief to get full data
+      await loadProject(data.project_id);
+      closeProjectModal();
+      showError('\u2705 Project saved: ' + name);
+      setTimeout(clearError, 4000);
+    } catch (err) {
+      showError('Failed to save project: ' + err.message);
+      setTimeout(clearError, 4000);
+    }
+  }
+
+  async function loadProjectList() {
+    const listEl = document.getElementById('proj-list');
+    try {
+      const res = await fetch(`${API}/project/briefs`);
+      const data = await res.json();
+      const briefs = data.briefs || [];
+      if (briefs.length === 0) {
+        listEl.innerHTML = '<div style="color:var(--mm-text-muted); font-size:0.82rem; text-align:center; padding:1rem;">No saved projects yet.</div>';
+        return;
+      }
+      listEl.innerHTML = briefs.map(b => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--mm-bg); border:1px solid var(--mm-border); border-radius:8px; padding:0.5rem 0.75rem; cursor:pointer;"
+             onclick="loadProject('${b.project_id}')">
+          <div>
+            <div style="font-size:0.88rem; font-weight:600; color:var(--mm-text);">${b.project_name || 'Untitled'}</div>
+            <div style="font-size:0.72rem; color:var(--mm-text-muted);">${b.project_type || ''} &middot; ${(b.created_at || '').slice(0, 10)}</div>
+          </div>
+          <button onclick="event.stopPropagation(); deleteProject('${b.project_id}')" style="
+            background:none; border:1px solid #ff5c5c44; color:#ff5c5c; border-radius:5px;
+            padding:0.2rem 0.5rem; font-size:0.72rem; cursor:pointer;">Delete</button>
+        </div>
+      `).join('');
+    } catch (err) {
+      listEl.innerHTML = '<div style="color:#ff5c5c; font-size:0.82rem; text-align:center; padding:1rem;">Failed to load projects.</div>';
+    }
+  }
+
+  async function loadProject(id) {
+    try {
+      const res = await fetch(`${API}/project/brief/${id}`);
+      if (!res.ok) throw new Error('Not found');
+      const brief = await res.json();
+      _activeProject = brief;
+      updateProjectUI();
+      // Switch to Manual Entry tab and populate form for editing
+      showProjectTab('new');
+      prefillForm(brief, []);
+    } catch (err) {
+      showError('Failed to load project.');
+      setTimeout(clearError, 3000);
+    }
+  }
+
+  async function deleteProject(id) {
+    if (!confirm('Delete this project brief?')) return;
+    try {
+      await fetch(`${API}/project/brief/${id}`, { method: 'DELETE' });
+      if (_activeProject && _activeProject.project_id === id) {
+        _activeProject = null;
+        updateProjectUI();
+      }
+      loadProjectList();
+    } catch (_) {}
+  }
+
+  function updateProjectUI() {
+    if (_activeProject) {
+      activeProjectEl.textContent = _activeProject.project_name || 'Untitled';
+      activeProjectEl.style.color = 'var(--mm-accent)';
+      // CPMAI badge
+      if (_activeProject.cpmai_phase && (_activeProject.methodology || []).includes('CPMAI')) {
+        cpmaiBadge.textContent = 'Phase: ' + _activeProject.cpmai_phase;
+        cpmaiBadge.style.display = '';
+      } else {
+        cpmaiBadge.style.display = 'none';
+      }
+    } else {
+      activeProjectEl.textContent = 'No project selected';
+      activeProjectEl.style.color = 'var(--mm-primary-mid)';
+      cpmaiBadge.style.display = 'none';
+    }
+  }
+
+  async function initProject() {
+    try {
+      const res = await fetch(`${API}/project/brief/active`);
+      const data = await res.json();
+      if (data.active && data.brief) {
+        _activeProject = data.brief;
+        updateProjectUI();
+      } else {
+        // No active project — show project modal
+        openProjectModal();
+      }
+    } catch (_) {
+      // Server not reachable — skip
+    }
+  }
+
+  // ── Error banner ──────────────────────────────────────────────────────────
+  function showError(msg) {
+    // Reset any yellow (slow_whisper) styling back to default
+    errorBanner.style.background = '';
+    errorBanner.style.borderColor = '';
+    errorText.style.color = '';
+    errorText.textContent = msg;
+    errorBanner.style.display = 'flex';
+  }
+  function clearError() {
+    errorBanner.style.display = 'none';
+    errorText.textContent = '';
+    errorBanner.style.background = '';
+    errorBanner.style.borderColor = '';
+    errorText.style.color = '';
+  }
+
+  // ── [Them] audio warning banner (S8-009) ────────────────────────────────
+  let _systemAudioPollId = null;
+  function showSystemAudioWarn(text) {
+    const el = document.getElementById('system-audio-warn');
+    const tx = document.getElementById('system-audio-warn-text');
+    tx.textContent = '\u26a0\ufe0f ' + text;
+    el.style.display = 'flex';
+    // Auto-dismiss: poll /debug every 10 s; hide if system chunks appear
+    if (_systemAudioPollId) clearInterval(_systemAudioPollId);
+    _systemAudioPollId = setInterval(async () => {
+      try {
+        const r = await fetch(API + '/debug');
+        if (!r.ok) return;
+        const d = await r.json();
+        if ((d.system_pipeline?.chunks_transcribed || 0) > 0) {
+          dismissSystemAudioWarn();
+        }
+      } catch {}
+    }, 10000);
+  }
+  function dismissSystemAudioWarn() {
+    const el = document.getElementById('system-audio-warn');
+    el.style.display = 'none';
+    if (_systemAudioPollId) { clearInterval(_systemAudioPollId); _systemAudioPollId = null; }
+  }
+
+  // ── Warning banner ────────────────────────────────────────────────────────
+  function showWarnings(warnings, virtualMics) {
+    if (!warnings || !warnings.length) return;
+
+    // Build compact single-line summary
+    const uniqueNames = [...new Set(virtualMics.map(d => d.name))];
+    const nameStr = uniqueNames.length === 1
+      ? uniqueNames[0]
+      : uniqueNames.slice(0, 2).join(', ') + (uniqueNames.length > 2 ? ` +${uniqueNames.length - 2} more` : '');
+    const totalInstances = virtualMics.reduce((n, d) => n + (d.duplicate_count || 1), 0);
+    const countStr = totalInstances > uniqueNames.length
+      ? `${totalInstances} virtual mic instances`
+      : `${uniqueNames.length} virtual mic${uniqueNames.length > 1 ? 's' : ''}`;
+
+    warnSummaryEl.textContent =
+      `${countStr} detected (${nameStr}) — not recommended for recording`;
+
+    // Populate expandable details
+    warningList.innerHTML = '';
+    warnings.forEach(w => {
+      const li = document.createElement('li');
+      li.textContent = w;
+      warningList.appendChild(li);
+    });
+
+    warningBanner.style.display = 'flex';
+  }
+
+  function toggleWarnDetails() {
+    warnDetailsOpen = !warnDetailsOpen;
+    warnBanner.classList.toggle('expanded', warnDetailsOpen);
+    document.getElementById('btn-warn-toggle').textContent =
+      warnDetailsOpen ? 'Hide ▲' : 'Details ▾';
+  }
+
+  // ── Status ────────────────────────────────────────────────────────────────
+  const statusTooltip = document.getElementById('status-tooltip');
+  let _countdownTimer = null;
+
+  function setStatus(state, countdownSecs) {
+    const states = {
+      connecting:   { dot: 'connecting',  label: 'Connecting…',             reconnect: false },
+      connected:    { dot: 'connected',   label: 'Connected',                reconnect: false },
+      loading:      { dot: 'connecting',  label: '◌ Loading Whisper model…', reconnect: false },
+      live:         { dot: 'live',        label: '● Live',                   reconnect: false },
+      idle:         { dot: 'connected',   label: 'Connected',                reconnect: false },
+      disconnected: { dot: 'disconnected',label: '⚠️ Server unreachable',     reconnect: true  },
+      error:        { dot: 'error',       label: '⚠️ Server unreachable',     reconnect: true  },
+    };
+    const s = states[state] || { dot: '', label: state, reconnect: false };
+    statusDot.className        = `status-dot ${s.dot}`;
+    btnReconnect.style.display = s.reconnect ? 'inline-flex' : 'none';
+
+    // Clear any running countdown before setting new label
+    clearInterval(_countdownTimer);
+    _countdownTimer = null;
+
+    if (countdownSecs !== undefined && countdownSecs > 0) {
+      // Animate countdown: "⚠️ Server unreachable — reconnecting in 5…"
+      let remaining = countdownSecs;
+      const tick = () => {
+        statusLabel.textContent = `${s.label} — reconnecting in ${remaining}…`;
+        remaining--;
+        if (remaining < 0) {
+          clearInterval(_countdownTimer);
+          _countdownTimer = null;
+        }
+      };
+      tick();
+      _countdownTimer = setInterval(tick, 1000);
+    } else {
+      statusLabel.textContent = s.label;
+    }
+
+    // Tooltip — only shown for disconnected/error states
+    const isDown = (state === 'disconnected' || state === 'error');
+    statusTooltip.style.display = isDown ? '' : 'none';
+    statusTooltip.innerHTML = isDown
+      ? 'MeetingMind server must be running.<br>Open VS Code terminal and type <strong>mmstart</strong>'
+      : '';
+  }
+
+  // ── WebSocket (auto-connect on load, stays open across start/stop) ────────
+
+  function _startKeepalive() {
+    _stopKeepalive();
+    _lastPing = Date.now();
+    _keepaliveTimer = setInterval(() => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      // Server sends ping every 15s; if none received for 45s, connection is dead
+      if (Date.now() - _lastPing > _PING_TIMEOUT) {
+        console.warn('Keepalive: no server ping in 45s — reconnecting');
+        ws.close();
+        return;
+      }
+    }, _PING_CHECK_INTERVAL);
+  }
+
+  function _stopKeepalive() {
+    clearInterval(_keepaliveTimer);
+    _keepaliveTimer = null;
+  }
+
+  async function _syncMeetingState() {
+    // After reconnect, check if a meeting is still active on the server
+    try {
+      const res = await fetch(`${API}/health`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.meeting_active && !meetingActive) {
+        // Server has an active meeting but UI doesn't — resume UI state
+        meetingActive = true;
+        btnStart.disabled = true;
+        btnStop.disabled  = false;
+        setStatus(data.model_loading ? 'loading' : 'live');
+      } else if (!data.meeting_active && meetingActive) {
+        // Meeting ended while we were disconnected
+        meetingActive = false;
+        btnStart.disabled = false;
+        btnStop.disabled  = true;
+        setStatus('connected');
+      }
+    } catch {}
+  }
+
   function connectWebSocket() {
-    if (ws && ws.readyState <= WebSocket.OPEN) return;
+    if (ws && ws.readyState <= WebSocket.OPEN) return;  // already open or connecting
     clearTimeout(wsReconnectTimer);
     setStatus('connecting');
+
     ws = new WebSocket(WS_URL);
 
     ws.onopen = () => {
       clearTimeout(wsReconnectTimer);
+      _reconnectAttempt = 0;   // reset backoff on successful connect
       setStatus(meetingActive ? 'live' : 'connected');
+      _startKeepalive();
+      _syncMeetingState();
     };
 
     ws.onmessage = (event) => {
+      // Handle text "pong" (legacy)
       if (event.data === 'pong') return;
       let msg;
       try { msg = JSON.parse(event.data); } catch { return; }
+      // Server-initiated ping → reply with pong and record timestamp
+      if (msg.type === 'ping') {
+        _lastPing = Date.now();
+        try { ws.send(JSON.stringify({ type: 'pong' })); } catch {}
+        return;
+      }
+      if (msg.type === 'pong') return; // legacy client-ping reply
 
       if (msg.type === 'rms') {
         updateRmsMeter(msg.rms, msg.threshold, msg.captured, msg.passed);
         return;
       }
+      if (msg.type === 'weak_signal') {
+        showError('\u26a0\ufe0f ' + msg.message);
+        return;
+      }
+      if (msg.type === 'mic_quality_warning') {
+        // Persistent banner — not auto-dismissed
+        errorBanner.style.background = '#FFF3E0';
+        errorBanner.style.borderColor = '#F57C00';
+        errorText.style.color = '#E65100';
+        errorText.textContent = '\u26a0\ufe0f ' + msg.message;
+        errorBanner.style.display = 'flex';
+        return;
+      }
+      if (msg.type === 'recalibrated') {
+        showError('\u2699\ufe0f ' + msg.message);
+        setTimeout(clearError, 6000);
+        return;
+      }
+      if (msg.type === 'slow_whisper') {
+        // Yellow warning banner suggesting tiny.en model
+        errorBanner.style.background = '#FFF3E0';
+        errorBanner.style.borderColor = '#F57C00';
+        errorText.style.color = '#E65100';
+        errorText.textContent = '\u26a0\ufe0f ' + msg.message;
+        errorBanner.style.display = 'flex';
+        return;
+      }
       if (msg.type === 'model_ready') {
         stopLoadingCountdown();
         if (meetingActive) setStatus('live');
-        const note = document.createElement('div');
-        note.style.cssText = 'color:#4ade80;font-size:0.75rem;padding:0.4rem 0;';
-        note.textContent = `✓ Whisper '${msg.model}' ready — speak to begin`;
         clearPlaceholder();
+        const note = document.createElement('div');
+        note.className = 'placeholder-text';
+        note.style.cssText = 'color:#2E7D32;font-size:0.75rem;padding:0.5rem 1.4rem;';
+        note.textContent = `✓ Whisper '${msg.model}' ready — speak to begin transcription`;
         feed.appendChild(note);
         feed.scrollTop = feed.scrollHeight;
         setTimeout(() => note.remove(), 4000);
         return;
       }
-      if (msg.type === 'error') { showError('Pipeline: ' + msg.message); return; }
+      if (msg.type === 'system_audio_warning') {
+        showSystemAudioWarn(msg.message + ' \u2014 ' + msg.detail);
+        return;
+      }
+      if (msg.type === 'error') {
+        showError('Pipeline: ' + msg.message);
+        return;
+      }
+      if (msg.type === 'ingestion_complete') {
+        return;
+      }
+      if (msg.type === 'coaching') {
+        appendCoaching(msg);
+        return;
+      }
+      if (msg.type === 'coaching_resolved') {
+        resolveCoaching(msg);
+        return;
+      }
+      if (msg.type === 'decision') {
+        appendChunk(msg, true);
+        transcriptBuffer.push(msg.text);
+        if (transcriptBuffer.length > MAX_BUFFER_CHUNKS) transcriptBuffer.shift();
+        return;
+      }
+      if (msg.type === 'fact_check_alert') {
+        appendFactCheck(msg);
+        return;
+      }
+      // S8-002: AI-detected action items & decisions
+      if (msg.type === 'action_item') {
+        appendActionItem(msg.data);
+        return;
+      }
+      if (msg.type === 'ai_decision') {
+        appendAiDecision(msg.data);
+        return;
+      }
+      // S8-003: Scope creep alerts
+      if (msg.type === 'scope_alert') {
+        appendScopeAlert(msg.data);
+        return;
+      }
+      // S8-004: Timeline alerts
+      if (msg.type === 'timeline_alert') {
+        appendTimelineAlert(msg.data);
+        return;
+      }
+      if (msg.type === 'guest_connected') {
+        document.getElementById('guest-banner').style.display = 'flex';
+        document.getElementById('guest-banner-text').textContent = 'Guest connected';
+        return;
+      }
+      if (msg.type === 'guest_disconnected') {
+        document.getElementById('guest-banner').style.display = 'none';
+        return;
+      }
 
-      // Transcript chunk
-      if (msg.text !== undefined) appendChunk(msg);
+      // Transcript chunk (explicit type or legacy no-type)
+      if (msg.type === 'transcript' || msg.text !== undefined) {
+        appendChunk(msg);
+        transcriptBuffer.push(msg.text);
+        if (transcriptBuffer.length > MAX_BUFFER_CHUNKS) transcriptBuffer.shift();
+      }
     };
 
-    ws.onerror = () => setStatus('error');
+    ws.onerror = () => {};   // onclose always fires after onerror; handle there
+
     ws.onclose = () => {
       ws = null;
-      setStatus('disconnected');
-      wsReconnectTimer = setTimeout(connectWebSocket, 6000);
+      _stopKeepalive();
+      const delay = _WS_BACKOFF[Math.min(_reconnectAttempt, _WS_BACKOFF.length - 1)];
+      _reconnectAttempt++;
+      setStatus('disconnected', delay);
+      wsReconnectTimer = setTimeout(connectWebSocket, delay * 1000);
     };
   }
 
   function reconnectWS() {
     clearTimeout(wsReconnectTimer);
+    clearInterval(_countdownTimer);
+    _countdownTimer = null;
+    _reconnectAttempt = 0;  // manual reconnect resets backoff
     ws = null;
     connectWebSocket();
   }
@@ -389,56 +2394,198 @@
     stopLoadingCountdown();
     const est = MODEL_LOAD_SECS[model] || 20;
     let secsLeft = est;
-    const tick = () => {
-      statusLabel.textContent = `◌ Loading Whisper ${model} (~${Math.max(0, secsLeft)}s)`;
-      secsLeft--;
-    };
+    function tick() {
+      const suffix = secsLeft > 0 ? ` (~${secsLeft}s)` : '…';
+      statusLabel.textContent = `◌ Loading Whisper ${model}${suffix}`;
+      if (secsLeft > 0) secsLeft--;
+    }
     tick();
     loadingCountdownTimer = setInterval(tick, 1000);
   }
+
   function stopLoadingCountdown() {
     clearInterval(loadingCountdownTimer);
     loadingCountdownTimer = null;
   }
 
-  // ── Device dropdown ───────────────────────────────────────────────────────
-  async function loadDevices() {
-    try {
-      const res = await fetch(`${API}/devices`);
-      if (!res.ok) return;
-      const { devices } = await res.json();
-      if (!devices || !devices.length) return;
+  // ── Device dropdown population ────────────────────────────────────────────
+  function truncate(s, max) {
+    return s.length > max ? s.slice(0, max - 1) + '…' : s;
+  }
 
-      micSel.innerHTML = '<option value="">OS Default</option>';
-      devices.forEach(d => {
+  function populateDeviceDropdowns(data) {
+    if (!data || !Array.isArray(data.all_devices)) {
+      console.error('populateDeviceDropdowns: unexpected shape', data);
+      return;
+    }
+    const { recommended_mic, recommended_system, all_devices, warnings } = data;
+    allDevices = all_devices;
+    _recommendedSystem = recommended_system || null;
+
+    const realMics    = all_devices.filter(d => d.category === 'REAL_MIC');
+    const virtualMics = all_devices.filter(d => d.category === 'VIRTUAL_MIC');
+    const systemAudio = all_devices.filter(d => d.category === 'SYSTEM_AUDIO');
+
+    // ── Show compact warning banner ────────────────────────────────────────
+    showWarnings(warnings, virtualMics);
+
+    // ── Mic dropdown ──────────────────────────────────────────────────────
+    micSel.innerHTML = '<option value="">OS Default</option>';
+
+    if (realMics.length) {
+      const grp = document.createElement('optgroup');
+      grp.label = 'YOUR MICROPHONE';
+      realMics.forEach(d => {
+        const isRec = recommended_mic && d.index === recommended_mic.index;
+        const wasapi = d.duplicate_count > 1 && d.host_api.includes('WASAPI');
+        const opt   = document.createElement('option');
+        opt.value   = d.index;
+        opt.title   = `${d.host_api} | Score ${d.score}/10` +
+                      (d.duplicate_count > 1 ? ` | ${d.duplicate_count} host-API versions merged` : '');
+        opt.textContent = (isRec ? '✅ ' : '   ') +
+                          truncate(d.name, 32) +
+                          (wasapi ? ' (WASAPI)' : '');
+        if (isRec) opt.selected = true;
+        grp.appendChild(opt);
+      });
+      micSel.appendChild(grp);
+    }
+
+    if (systemAudio.length) {
+      const grp = document.createElement('optgroup');
+      grp.label = 'SYSTEM AUDIO';
+      systemAudio.forEach(d => {
+        const wasapi = d.duplicate_count > 1 && d.host_api.includes('WASAPI');
+        const opt   = document.createElement('option');
+        opt.value   = d.index;
+        opt.title   = `${d.host_api} | Score ${d.score}/10`;
+        opt.textContent = '   ' + truncate(d.name, 32) + (wasapi ? ' (WASAPI)' : '');
+        grp.appendChild(opt);
+      });
+      micSel.appendChild(grp);
+    }
+
+    if (virtualMics.length) {
+      const grp = document.createElement('optgroup');
+      grp.label = 'VIRTUAL — USE WITH CAUTION';
+      virtualMics.forEach(d => {
+        const countSuffix = d.duplicate_count > 1 ? ` ×${d.duplicate_count}` : '';
         const opt = document.createElement('option');
         opt.value = d.index;
-        opt.textContent = `[${d.index}] ${d.name.slice(0, 40)}`;
-        if (d.is_default) opt.selected = true;
-        micSel.appendChild(opt);
+        opt.title = `${d.host_api} | ${d.duplicate_count > 1 ? d.duplicate_count + ' instances merged' : 'virtual mic'}`;
+        opt.textContent = '⚠ ' + truncate(d.name, 30) + countSuffix;
+        grp.appendChild(opt);
       });
-    } catch (err) {
-      console.warn('Device fetch failed:', err);
+      micSel.appendChild(grp);
     }
+
+    // ── System audio dropdown ─────────────────────────────────────────────
+    systemSel.innerHTML = '<option value="">None</option>';
+
+    if (systemAudio.length) {
+      const grp = document.createElement('optgroup');
+      grp.label = 'SYSTEM AUDIO';
+      systemAudio.forEach(d => {
+        const isRec = recommended_system && d.index === recommended_system.index;
+        const wasapi = d.duplicate_count > 1 && d.host_api.includes('WASAPI');
+        const opt   = document.createElement('option');
+        opt.value   = d.index;
+        opt.title   = `${d.host_api} | Score ${d.score}/10`;
+        opt.textContent = (isRec ? '✅ ' : '   ') +
+                          truncate(d.name, 32) +
+                          (wasapi ? ' (WASAPI)' : '');
+        if (isRec) opt.selected = true;
+        grp.appendChild(opt);
+      });
+      systemSel.appendChild(grp);
+    }
+
+    if (virtualMics.length) {
+      const grp = document.createElement('optgroup');
+      grp.label = 'VIRTUAL';
+      virtualMics.forEach(d => {
+        const countSuffix = d.duplicate_count > 1 ? ` ×${d.duplicate_count}` : '';
+        const opt = document.createElement('option');
+        opt.value = d.index;
+        opt.title = `${d.host_api}${d.duplicate_count > 1 ? ' | ' + d.duplicate_count + ' instances merged' : ''}`;
+        opt.textContent = '⚠ ' + truncate(d.name, 30) + countSuffix;
+        grp.appendChild(opt);
+      });
+      systemSel.appendChild(grp);
+    }
+
+    // ── Inline virtual warning on selection change ─────────────────────────
+    function checkVirtual(sel, warnEl) {
+      const dev = allDevices.find(d => String(d.index) === sel.value);
+      warnEl.style.display = (dev && dev.category === 'VIRTUAL_MIC') ? 'block' : 'none';
+    }
+    micSel.addEventListener('change', () => checkVirtual(micSel, micVirtualWarn));
+    systemSel.addEventListener('change', () => checkVirtual(systemSel, sysVirtualWarn));
+    checkVirtual(micSel, micVirtualWarn);
+    checkVirtual(systemSel, sysVirtualWarn);
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
-  async function init() {
-    try { await fetch(`${API}/meeting/reset`, { method: 'POST' }); } catch (_) {}
-    connectWebSocket();
-    await loadDevices();
+  console.log("DOM loaded");
+  console.log("mm_role:", localStorage.getItem('mm_role'));
+  console.log("mm_onboarding_done:", localStorage.getItem('mm_onboarding_done'));
+  console.log("mm_profile:", localStorage.getItem('mm_profile'));
 
+  async function init() {
+    // 0a. Project brief (first visit shows project setup modal)
+    await initProject();
+
+    // 0b. Clear any stale meeting state from a previous session
+    try { await fetch(`${API}/meeting/reset`, { method: 'POST' }); } catch (_) {}
+
+    // 1. Open WS connection immediately (auto-connect)
+    connectWebSocket();
+
+    // 2. Load device list
+    try {
+      const res = await fetch(`${API}/devices`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.all_devices)) {
+          populateDeviceDropdowns(data);
+        } else if (data.devices) {
+          showError(
+            'Server is running old code — restart uvicorn to enable smart device detection.'
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('Device fetch failed:', err);
+    }
+
+    // 3. Sync with server meeting state + check Windows mic permission
     try {
       const res = await fetch(`${API}/health`);
       if (!res.ok) return;
       const data = await res.json();
+      if (data.windows_mic_blocked) {
+        showError(
+          '⚠ Windows microphone access may be blocked. ' +
+          'Check Settings → Privacy & Security → Microphone → ' +
+          'Allow apps to access your microphone, then restart the server.'
+        );
+      }
       if (data.meeting_active) {
-        meetingActive              = true;
-        btnStart.disabled          = true;
-        btnStop.disabled           = false;
-        modelSel.disabled          = true;
-        micSel.disabled            = true;
-        rmsMeterWrap.style.display = 'flex';
+        meetingActive = true;
+        if (!data.windows_mic_blocked) {
+          showError(
+            'Server has an active meeting from a previous session. ' +
+            'Click Stop to end it or Start to begin a new one.'
+          );
+        }
+        btnStart.disabled   = true;
+        btnStop.disabled    = false;
+        btnSuggest.disabled = false;
+        modelSel.disabled   = true;
+        micSel.disabled     = true;
+        systemSel.disabled  = true;
+        document.getElementById('onetone-toggle').disabled = true;
+        document.getElementById('rms-meter-wrap').style.display = 'flex';
         setStatus(data.model_loading ? 'loading' : 'live');
       }
     } catch (_) {}
@@ -447,97 +2594,487 @@
   // ── Meeting controls ──────────────────────────────────────────────────────
   async function startMeeting() {
     clearError();
-    btnStart.disabled          = true;
-    btnStart.textContent       = '◌ Starting…';
-    btnStop.disabled           = false;
-    modelSel.disabled          = true;
-    micSel.disabled            = true;
-    rmsMeterWrap.style.display = 'flex';
+    dismissSystemAudioWarn();
+    clearCoachingPanel();
+    clearFactChecks();
+    _currentFacts = { decision: null, owner: null, deadline: null, risk: null, action: null };
+    _hasRenderedFacts = false;
+
+    // ── Optimistic UI: apply immediately on click, before server responds ──
+    btnStart.disabled    = true;
+    btnStart.textContent = '◌ Starting…';
+    btnStop.disabled     = false;      // Stop is always usable once Start is clicked
+    btnSuggest.disabled  = false;
+    modelSel.disabled    = true;
+    micSel.disabled      = true;
+    systemSel.disabled   = true;
+    document.getElementById('onetone-toggle').disabled = true;
+    document.getElementById('rms-meter-wrap').style.display = 'flex';  // show meter immediately
 
     const model  = modelSel.value;
     const micIdx = micSel.value;
+    const sysIdx = systemSel.value;
     let url = `${API}/meeting/start?model_size=${model}`;
     if (micIdx) url += `&mic_device_index=${micIdx}`;
+    if (sysIdx) url += `&system_device_index=${sysIdx}`;
 
     try {
       const res = await fetch(url, { method: 'POST' });
       if (!res.ok) {
-        const err  = await res.json().catch(() => ({}));
-        const hint = err.suggestion ? ` — ${err.suggestion}` : '';
+        const err = await res.json().catch(() => ({}));
+        const hint = err.suggestion ? `\n${err.suggestion}` : '';
         showError(`Failed to start: ${err.error || res.statusText}${hint}`);
-        btnStart.disabled          = false;
-        btnStart.textContent       = '▶ Start';
-        btnStop.disabled           = true;
-        modelSel.disabled          = false;
-        micSel.disabled            = false;
-        rmsMeterWrap.style.display = 'none';
+        // Revert all button state on failure
+        btnStart.disabled    = false;
+        btnStart.textContent = '▶ Start';
+        btnStop.disabled     = true;
+        btnSuggest.disabled  = true;
+        modelSel.disabled    = false;
+        micSel.disabled      = false;
+        systemSel.disabled   = false;
+        document.getElementById('onetone-toggle').disabled = false;
+        document.getElementById('rms-meter-wrap').style.display = 'none';
         return;
       }
     } catch (e) {
       showError('Server unreachable — is uvicorn running?');
-      btnStart.disabled          = false;
-      btnStart.textContent       = '▶ Start';
-      btnStop.disabled           = true;
-      modelSel.disabled          = false;
-      micSel.disabled            = false;
-      rmsMeterWrap.style.display = 'none';
+      btnStart.disabled    = false;
+      btnStart.textContent = '▶ Start';
+      btnStop.disabled     = true;
+      btnSuggest.disabled  = true;
+      modelSel.disabled    = false;
+      micSel.disabled      = false;
+      systemSel.disabled   = false;
+      document.getElementById('onetone-toggle').disabled = false;
+      document.getElementById('rms-meter-wrap').style.display = 'none';
       return;
     }
 
+    // Server responded — audio is live, Whisper is loading in background
     meetingActive        = true;
     btnStart.textContent = '▶ Start';
+    document.getElementById('btn-guest').disabled = false;
     elapsedSecs          = 0;
-    elapsedTimer = setInterval(() => {
+    const timerEl = document.getElementById('meeting-timer');
+    timerEl.style.display = 'inline';
+    elapsedTimer         = setInterval(() => {
       elapsedSecs++;
-      const m = String(Math.floor(elapsedSecs / 60)).padStart(2, '0');
+      const h = String(Math.floor(elapsedSecs / 3600)).padStart(2, '0');
+      const m = String(Math.floor((elapsedSecs % 3600) / 60)).padStart(2, '0');
       const s = String(elapsedSecs % 60).padStart(2, '0');
       elapsedEl.textContent = `${m}:${s}`;
+      timerEl.textContent   = `\u23F1 ${h}:${m}:${s}`;
     }, 1000);
 
+    // WS is already connected from init(); status = "loading" until model_ready arrives
+    loadingModel = model;
     if (ws && ws.readyState === WebSocket.OPEN) {
       setStatus('loading');
       startLoadingCountdown(model);
     } else {
       connectWebSocket();
     }
+
+    startAutoSuggest();
   }
 
   async function stopMeeting() {
     clearInterval(elapsedTimer);
     clearTimeout(rmsWatchdogTimer);
     stopLoadingCountdown();
+    stopAutoSuggest();
     meetingActive = false;
 
-    fetch(`${API}/meeting/stop`, { method: 'POST' }).catch(() => {});
+    // Stop meeting — await so summary is ready before we fetch it
+    try { await fetch(`${API}/meeting/stop`, { method: 'POST' }); } catch {}
 
-    btnStart.disabled             = false;
-    btnStart.textContent          = '▶ Start';
-    btnStop.disabled              = true;
-    modelSel.disabled             = false;
-    micSel.disabled               = false;
-    elapsedEl.textContent         = '';
-    rmsMeterWrap.style.display    = 'none';
+    btnStart.disabled     = false;
+    btnStart.textContent  = '▶ Start';
+    btnStop.disabled      = true;
+    btnSuggest.disabled   = true;
+    modelSel.disabled     = false;
+    micSel.disabled       = false;
+    systemSel.disabled    = false;
+    document.getElementById('onetone-toggle').disabled = false;
+    document.getElementById('btn-guest').disabled = true;
+    document.getElementById('guest-banner').style.display = 'none';
+    closeGuestModal();
+    closeGuestViewModal();
+    _guestViewToken = null;
+    elapsedEl.textContent = '';
+    document.getElementById('meeting-timer').style.display = 'none';
+    document.getElementById('rms-meter-wrap').style.display = 'none';
     document.getElementById('rms-stats').textContent = '';
-    setStatus(ws && ws.readyState === WebSocket.OPEN ? 'connected' : 'disconnected');
+    document.getElementById('rms-stats').className = 'rms-stats';
+
+    // Keep WS open — just update status to 'connected'
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      setStatus('connected');
+    } else {
+      setStatus('disconnected');
+    }
+
+    // Fetch and show meeting summary
+    await fetchAndShowSummary();
   }
+
+  // ── S8-005: PM Meeting Summary ────────────────────────────────────────
+  // _summaryData holds the last fetched summary for markdown export
+  let _summaryData = null;
+
+  async function fetchAndShowSummary() {
+    try {
+      const res = await fetch(`${API}/meeting/summary`);
+      if (!res.ok) return;
+      const data = await res.json();
+      _summaryData = data;
+      renderSummaryModal(data, data.pm_summary ? null : { attempt: 0, max: 20 });
+      // If pm_summary not ready yet, poll for it (async generation)
+      if (!data.pm_summary) {
+        _pollForPmSummary(0);
+      }
+    } catch {}
+  }
+
+  function _pollForPmSummary(attempt) {
+    if (attempt >= 20) {
+      // Exhausted — show fallback message
+      if (_summaryData) renderSummaryModal(_summaryData, { attempt, max: 20, exhausted: true });
+      return;
+    }
+    setTimeout(async () => {
+      try {
+        const res = await fetch(`${API}/meeting/summary`);
+        if (!res.ok) return;
+        const data = await res.json();
+        _summaryData = data;
+        if (data.pm_summary) {
+          renderSummaryModal(data);
+        } else {
+          renderSummaryModal(data, { attempt: attempt + 1, max: 20 });
+          _pollForPmSummary(attempt + 1);
+        }
+      } catch {}
+    }, 2000);
+  }
+
+  function renderSummaryModal(data, pollState) {
+    const el = document.getElementById('summary-content');
+    const esc = (s) => String(s || '').replace(/[<]/g, '&lt;').replace(/[>]/g, '&gt;');
+    const pm = data.pm_summary;
+
+    let html = '';
+
+    // ── MEETING OVERVIEW ──────────────────────────────────────────────
+    html += `<div style="margin-bottom:0.8rem;">
+      <div style="font-size:0.72rem; font-weight:700; color:var(--mm-primary); letter-spacing:0.08em; margin-bottom:0.3rem; text-transform:uppercase;">
+        Meeting Overview
+      </div>`;
+
+    if (pm) {
+      html += `<div style="color:var(--mm-text-muted); font-size:0.78rem; margin-bottom:0.4rem;">${esc(pm.overview)}</div>`;
+      html += `<div style="font-size:0.82rem; line-height:1.5;">${esc(pm.executive_summary)}</div>`;
+    } else {
+      // Fallback: raw data
+      const projItem = [...(data.ai_action_items || []), ...(data.ai_decisions || [])].find(x => x.project_name);
+      const projLine = projItem ? `${esc(projItem.project_name)}` : '';
+      const phaseLine = projItem && projItem.cpmai_phase ? ` | ${esc(projItem.cpmai_phase)}` : '';
+      html += `<div style="color:var(--mm-text-muted); font-size:0.78rem;">
+        <strong style="color:var(--mm-text);">${data.duration_minutes} min</strong>
+        &nbsp;|&nbsp; ${data.transcript_chunks || 0} chunks${projLine ? ` | ${projLine}${phaseLine}` : ''}
+      </div>`;
+    }
+    html += `</div>`;
+
+    // ── KEY DECISIONS ─────────────────────────────────────────────────
+    const pmDecs = pm ? pm.decisions : null;
+    const aiDecs = data.ai_decisions || [];
+    const patternDecs = data.decisions || [];
+    const allDecs = pmDecs || (aiDecs.length > 0 ? aiDecs : patternDecs);
+    html += `<div style="margin-top:0.5rem;">
+      <div style="font-size:0.72rem; font-weight:700; color:var(--mm-ok); letter-spacing:0.08em; margin-bottom:0.3rem; text-transform:uppercase;">
+        Key Decisions (${allDecs.length})
+      </div>`;
+    if (allDecs.length === 0) {
+      html += `<div style="color:var(--mm-text-muted); font-size:0.78rem;">No decisions detected</div>`;
+    } else {
+      for (const d of allDecs) {
+        const ownerName = d.owner || d.made_by || '';
+        const ownerChip = ownerName ? `<span style="
+          display:inline-block; background:var(--mm-primary); color:white;
+          font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:9px; margin-left:0.4rem;
+          vertical-align:middle;
+        ">${esc(ownerName)}</span>` : '';
+        html += `<div style="padding:0.25rem 0; border-bottom:1px solid var(--mm-border);">
+          ${esc(d.text)}${ownerChip}
+        </div>`;
+      }
+    }
+    html += `</div>`;
+
+    // ── ACTION ITEMS ──────────────────────────────────────────────────
+    const pmActions = pm ? pm.action_items : null;
+    const aiActions = data.ai_action_items || [];
+    const patternActions = data.action_items || [];
+    const allActions = pmActions || (aiActions.length > 0 ? aiActions : patternActions);
+    html += `<div style="margin-top:0.8rem;">
+      <div style="font-size:0.72rem; font-weight:700; color:var(--mm-notable); letter-spacing:0.08em; margin-bottom:0.3rem; text-transform:uppercase;">
+        Action Items (${allActions.length})
+      </div>`;
+    if (allActions.length === 0) {
+      html += `<div style="color:var(--mm-text-muted); font-size:0.78rem;">No action items detected</div>`;
+    } else {
+      for (const a of allActions) {
+        const owner = a.owner ? `<span style="color:var(--mm-primary-mid); font-size:0.72rem;"> @${esc(a.owner)}</span>` : '';
+        const deadline = a.deadline ? `<span style="color:var(--mm-text-muted); font-size:0.72rem;"> | ${esc(a.deadline)}</span>` : '';
+        const pri = (a.priority || '').toLowerCase();
+        const priColor = pri === 'high' ? '#D32F2F' : pri === 'medium' ? '#F9A825' : pri === 'low' ? '#2E7D32' : 'var(--mm-text-muted)';
+        const priBadge = a.priority ? `<span style="
+          display:inline-block; background:${priColor}; color:white;
+          font-size:0.6rem; padding:0.08rem 0.35rem; border-radius:7px; margin-left:0.3rem;
+          text-transform:uppercase; font-weight:700; vertical-align:middle;
+        ">${esc(a.priority)}</span>` : '';
+        html += `<div style="padding:0.25rem 0; border-bottom:1px solid var(--mm-border);">
+          ${esc(a.text)}${priBadge}${owner}${deadline}
+        </div>`;
+      }
+    }
+    html += `</div>`;
+
+    // ── RISKS REGISTER ────────────────────────────────────────────────
+    const pmRisks = pm ? pm.risks : null;
+    const scopeAlerts = data.scope_alerts || [];
+    const timelineAlerts = data.timeline_alerts || [];
+    let allRisks = pmRisks;
+    if (!allRisks) {
+      // Fallback: combine scope + timeline alerts into risk-like objects
+      allRisks = [
+        ...scopeAlerts.map(s => ({ type: 'scope', description: s.text, severity: s.severity || 'warning', recommendation: s.suggestion || '' })),
+        ...timelineAlerts.map(t => ({ type: 'timeline', description: t.text, severity: t.severity || 'warning', recommendation: t.suggestion || '' })),
+      ];
+    }
+    html += `<div style="margin-top:0.8rem;">
+      <div style="font-size:0.72rem; font-weight:700; color:var(--mm-flag); letter-spacing:0.08em; margin-bottom:0.3rem; text-transform:uppercase;">
+        Risks Register (${allRisks.length})
+      </div>`;
+    if (allRisks.length === 0) {
+      html += `<div style="color:var(--mm-text-muted); font-size:0.78rem;">No risks identified</div>`;
+    } else {
+      for (const r of allRisks) {
+        const sevLabel = (r.severity || 'warning').toUpperCase();
+        const sevColor = sevLabel === 'CRITICAL' ? 'var(--mm-flag)' : 'var(--mm-notable)';
+        const typeBadge = r.type ? `<span style="color:var(--mm-text-muted); font-size:0.65rem; text-transform:uppercase;">[${esc(r.type)}]</span> ` : '';
+        const rec = r.recommendation ? `<div style="color:var(--mm-text-muted); font-size:0.72rem; margin-top:0.15rem; padding-left:0.5rem; border-left:2px solid var(--mm-border);">${esc(r.recommendation)}</div>` : '';
+        html += `<div style="padding:0.3rem 0; border-bottom:1px solid var(--mm-border);">
+          <span style="color:${sevColor}; font-weight:700; font-size:0.68rem;">${sevLabel}</span>
+          ${typeBadge}${esc(r.description)}${rec}
+        </div>`;
+      }
+    }
+    html += `</div>`;
+
+    // ── NEXT STEPS ────────────────────────────────────────────────────
+    const nextSteps = pm ? (pm.next_steps || []) : [];
+    if (nextSteps.length > 0) {
+      html += `<div style="margin-top:0.8rem;">
+        <div style="font-size:0.72rem; font-weight:700; color:var(--mm-accent); letter-spacing:0.08em; margin-bottom:0.3rem; text-transform:uppercase;">
+          Next Steps
+        </div>
+        <ol style="margin:0; padding-left:1.2rem;">`;
+      for (const step of nextSteps) {
+        html += `<li style="padding:0.15rem 0; font-size:0.8rem;">${esc(step)}</li>`;
+      }
+      html += `</ol></div>`;
+    }
+
+    // ── COACHING EVENTS ───────────────────────────────────────────────
+    const coachCount = data.coaching_events || 0;
+    if (coachCount > 0) {
+      html += `<div style="margin-top:0.8rem;">
+        <div style="font-size:0.72rem; font-weight:700; color:var(--mm-primary-mid); letter-spacing:0.08em; margin-bottom:0.3rem; text-transform:uppercase;">
+          Coaching Events (${coachCount})
+        </div>`;
+      for (const c of (data.coaching_details || [])) {
+        html += `<div style="padding:0.2rem 0; border-bottom:1px solid var(--mm-border);">
+          <span style="color:var(--mm-primary-mid);">${esc(c.trigger_id)}</span>:
+          ${esc(c.prompt)}
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+    // ── SPEAKER COUNTS ────────────────────────────────────────────────
+    const sp = data.speaker_counts || {};
+    const mic = sp.microphone || 0;
+    const sys = sp.system || 0;
+    if (mic + sys > 0) {
+      html += `<div style="margin-top:0.8rem; color:var(--mm-text-muted); font-size:0.75rem;">
+        Speaker: You ${mic} chunks | Them ${sys} chunks
+      </div>`;
+    }
+
+    // PM summary loading indicator
+    if (!pm) {
+      if (pollState && pollState.exhausted) {
+        html += `<div style="margin-top:0.6rem; color:var(--mm-notable); font-size:0.72rem; font-style:italic;">
+          AI summary unavailable &mdash; showing raw data
+        </div>`;
+      } else {
+        const n = pollState ? pollState.attempt + 1 : 1;
+        html += `<div style="margin-top:0.6rem; color:var(--mm-text-muted); font-size:0.72rem; font-style:italic;">
+          Generating AI summary&hellip; (${n}/20)
+        </div>`;
+      }
+    }
+
+    el.innerHTML = html;
+    document.getElementById('summary-modal').style.display = 'flex';
+  }
+
+  function closeSummaryModal() {
+    document.getElementById('summary-modal').style.display = 'none';
+  }
+
+  function _buildSummaryMarkdown(data) {
+    const pm = data.pm_summary;
+    let md = '# PM Meeting Summary\n\n';
+
+    // Overview
+    md += '## Meeting Overview\n';
+    if (pm) {
+      md += `${pm.overview}\n\n${pm.executive_summary}\n\n`;
+    } else {
+      md += `Duration: ${data.duration_minutes} min | Chunks: ${data.transcript_chunks || 0}\n\n`;
+    }
+
+    // Decisions
+    const pmDecs = pm ? pm.decisions : null;
+    const aiDecs = data.ai_decisions || [];
+    const patternDecs = data.decisions || [];
+    const allDecs = pmDecs || (aiDecs.length > 0 ? aiDecs : patternDecs);
+    md += '## Key Decisions\n';
+    if (allDecs.length === 0) {
+      md += '_No decisions detected_\n\n';
+    } else {
+      for (const d of allDecs) {
+        const owner = d.owner || d.made_by || '';
+        md += `- ${d.text}${owner ? ` (${owner})` : ''}\n`;
+      }
+      md += '\n';
+    }
+
+    // Action items
+    const pmActions = pm ? pm.action_items : null;
+    const aiActions = data.ai_action_items || [];
+    const patternActions = data.action_items || [];
+    const allActions = pmActions || (aiActions.length > 0 ? aiActions : patternActions);
+    md += '## Action Items\n';
+    if (allActions.length === 0) {
+      md += '_No action items detected_\n\n';
+    } else {
+      for (const a of allActions) {
+        const parts = [a.text];
+        if (a.owner) parts.push(`@${a.owner}`);
+        if (a.deadline) parts.push(`due: ${a.deadline}`);
+        if (a.priority) parts.push(`[${a.priority}]`);
+        md += `- ${parts.join(' | ')}\n`;
+      }
+      md += '\n';
+    }
+
+    // Risks
+    const pmRisks = pm ? pm.risks : null;
+    const scopeAlerts = data.scope_alerts || [];
+    const timelineAlerts = data.timeline_alerts || [];
+    const allRisks = pmRisks || [
+      ...scopeAlerts.map(s => ({ type: 'scope', description: s.text, severity: s.severity || 'warning', recommendation: s.suggestion || '' })),
+      ...timelineAlerts.map(t => ({ type: 'timeline', description: t.text, severity: t.severity || 'warning', recommendation: t.suggestion || '' })),
+    ];
+    md += '## Risks Register\n';
+    if (allRisks.length === 0) {
+      md += '_No risks identified_\n\n';
+    } else {
+      for (const r of allRisks) {
+        const sev = (r.severity || 'warning').toUpperCase();
+        md += `- **${sev}** [${r.type || ''}] ${r.description}`;
+        if (r.recommendation) md += ` — ${r.recommendation}`;
+        md += '\n';
+      }
+      md += '\n';
+    }
+
+    // Next steps
+    const nextSteps = pm ? (pm.next_steps || []) : [];
+    if (nextSteps.length > 0) {
+      md += '## Next Steps\n';
+      nextSteps.forEach((s, i) => { md += `${i+1}. ${s}\n`; });
+      md += '\n';
+    }
+
+    return md;
+  }
+
+  function copySummaryMarkdown(btn) {
+    if (!_summaryData) return;
+    const md = _buildSummaryMarkdown(_summaryData);
+    navigator.clipboard.writeText(md).then(() => {
+      btn.textContent = '\u2713 Copied!';
+      btn.style.color = '#2E7D32';
+      btn.style.borderColor = '#2E7D32';
+      setTimeout(() => {
+        btn.textContent = 'Copy as Markdown';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+      }, 2000);
+    }).catch(() => {});
+  }
+
+  // Close summary modal on backdrop click
+  document.getElementById('summary-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeSummaryModal();
+  });
 
   async function resetMeeting() {
     clearInterval(elapsedTimer);
     clearTimeout(rmsWatchdogTimer);
     stopLoadingCountdown();
+    stopAutoSuggest();
     meetingActive = false;
 
     try { await fetch(`${API}/meeting/reset`, { method: 'POST' }); } catch (_) {}
 
-    btnStart.disabled             = false;
-    btnStart.textContent          = '▶ Start';
-    btnStop.disabled              = true;
-    modelSel.disabled             = false;
-    micSel.disabled               = false;
-    elapsedEl.textContent         = '';
-    rmsMeterWrap.style.display    = 'none';
+    // Clear all panels
+    clearTranscript();
+    clearCoachingPanel();
+    clearFactChecks();
+    clearError();
+    suggList.innerHTML = '';
+    _currentFacts = { decision: null, owner: null, deadline: null, risk: null, action: null };
+    _hasRenderedFacts = false;
+
+    btnStart.disabled     = false;
+    btnStart.textContent  = '▶ Start';
+    btnStop.disabled      = true;
+    btnSuggest.disabled   = true;
+    modelSel.disabled     = false;
+    micSel.disabled       = false;
+    systemSel.disabled    = false;
+    document.getElementById('btn-guest').disabled = true;
+    document.getElementById('guest-banner').style.display = 'none';
+    closeGuestModal();
+    closeGuestViewModal();
+    _guestViewToken = null;
+    elapsedEl.textContent = '';
+    document.getElementById('meeting-timer').style.display = 'none';
+    document.getElementById('rms-meter-wrap').style.display = 'none';
     document.getElementById('rms-stats').textContent = '';
-    setStatus(ws && ws.readyState === WebSocket.OPEN ? 'connected' : 'disconnected');
+    document.getElementById('rms-stats').className = 'rms-stats';
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      setStatus('connected');
+    } else {
+      setStatus('disconnected');
+    }
   }
 
   // ── Transcript rendering ──────────────────────────────────────────────────
@@ -546,22 +3083,28 @@
     if (ph) ph.remove();
   }
 
-  function appendChunk(chunk) {
+  function appendChunk(chunk, isDecision = false) {
     clearPlaceholder();
-    const t       = new Date(chunk.timestamp * 1000).toLocaleTimeString();
+    const time    = new Date(chunk.timestamp * 1000).toLocaleTimeString();
     const conf    = Math.round((chunk.confidence || 0) * 100);
     const src     = chunk.source || 'microphone';
-    const speaker = src === 'microphone' ? 'You' : 'Them';
+    const speaker = chunk.speaker || (src === 'microphone' ? 'You' : 'Them');
     const tooltip = src === 'microphone'
       ? 'Your microphone'
-      : 'Them = remote audio playing through your speakers';
+      : src === 'guest'
+        ? 'Guest phone microphone'
+        : 'Them = audio from Zoom / Teams / Meet playing through speakers';
+    const decisionBadge = isDecision
+      ? `<span class="decision-badge" title="Matched: &quot;${escHtml(chunk.phrase || '')}&quot;">⚡ Decision</span>`
+      : '';
 
     const el = document.createElement('div');
-    el.className = 'transcript-chunk';
+    el.className = isDecision ? 'transcript-chunk decision' : 'transcript-chunk';
     el.innerHTML = `
       <div class="chunk-meta">
         <span class="speaker-tag ${escHtml(src)}" title="${escHtml(tooltip)}">[${escHtml(speaker)}]</span>
-        <span class="chunk-time">${t}</span>
+        ${decisionBadge}
+        <span class="chunk-time">${time}</span>
         <div class="confidence-bar" title="Confidence: ${conf}%">
           <div class="confidence-bar-fill" style="width:${conf}%"></div>
         </div>
@@ -572,18 +3115,560 @@
     feed.scrollTop = feed.scrollHeight;
   }
 
-  function clearTranscript() { feed.innerHTML = ''; }
+  // ── Coaching panel (Panel 2) ─────────────────────────────────────────────
+  const coachingFeed = document.getElementById('coaching-feed');
+
+  // Maps trigger_id → human label
+  const _TRIGGER_LABELS = {
+    no_decision_owner:  'Accountability',
+    resistance_detected:'Resistance',
+    scope_creep:        'Scope',
+    no_timeline:        'Timeline',
+    talk_ratio:         'Talk Ratio',
+    no_decision_20min:  'Meeting Pace',
+  };
+
+  // Urgency derived from confidence score
+  function _coachUrgency(confidence) {
+    if (confidence >= 0.90) return 'high';
+    if (confidence >= 0.80) return 'medium';
+    return 'info';
+  }
+  const _URGENCY_ICON = { high: '🔴', medium: '🟡', info: '🟢' };
+
+  function appendCoaching(msg) {
+    // Hide placeholder on first alert
+    const placeholder = document.getElementById('coaching-placeholder');
+    if (placeholder) placeholder.style.display = 'none';
+
+    const urgency  = _coachUrgency(msg.confidence || 0);
+    const label    = _TRIGGER_LABELS[msg.trigger_id] || msg.trigger_id;
+    const timeStr  = new Date((msg.timestamp || Date.now() / 1000) * 1000).toLocaleTimeString();
+    const promptId = msg.id || ('coach-' + Date.now());
+    const chkId    = 'chk-' + promptId.replace(/[^a-z0-9]/gi, '_');
+
+    const card = document.createElement('div');
+    card.className = `coaching-item ${urgency}`;
+    card.dataset.coachingId = promptId;
+    card.innerHTML = `
+      <div class="coach-item-header">
+        <span class="coach-urgency-icon">${_URGENCY_ICON[urgency]}</span>
+        <span class="coach-item-label">${escHtml(label)}</span>
+        <span class="coach-item-time">${timeStr}</span>
+        <span class="coach-act-wrap">
+          <input type="checkbox" class="coach-act-check" id="${chkId}"
+                 onchange="markActedOn(this,'${promptId}')" title="Mark as acted on">
+          <label class="coach-act-label" for="${chkId}">Act</label>
+        </span>
+      </div>
+      <div class="coach-item-prompt">${escHtml(msg.prompt)}</div>
+      ${msg.matched ? `<div class="coach-item-meta">matched: &quot;${escHtml(msg.matched)}&quot;</div>` : ''}
+    `;
+    _coachingCards[promptId] = card;
+    coachingFeed.appendChild(card);
+    card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  async function markActedOn(chk, promptId) {
+    const card = chk.closest('.coaching-item');
+    if (chk.checked) {
+      card.classList.add('acted-on');
+    } else {
+      card.classList.remove('acted-on');
+    }
+    try {
+      if (chk.checked) {
+        await fetch(`${API}/coaching/dismiss/${encodeURIComponent(promptId)}`, { method: 'POST' });
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  function resolveCoaching(msg) {
+    const card = _coachingCards[msg.id];
+    if (!card) return;
+    card.classList.add('acted-on', 'auto-resolved');
+    const chk = card.querySelector('.coach-act-check');
+    if (chk) chk.checked = true;
+    // Add auto-note if not already present
+    if (!card.querySelector('.coach-auto-note')) {
+      const note = document.createElement('div');
+      note.className = 'coach-auto-note';
+      note.textContent = msg.note || '✓ Auto-detected in conversation';
+      card.appendChild(note);
+    }
+  }
+
+  function clearCoachingPanel() {
+    _coachingCards = {};
+    clearActionItems();
+    clearAiDecisions();
+    clearScopeAlerts();
+    clearTimelineAlerts();
+    coachingFeed.innerHTML = `
+      <div id="mm-action-items-section">
+        <div class="mm-capture-header" style="color:var(--mm-primary); font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:0.5rem 0 0.3rem 0;">\ud83d\udccb ACTION ITEMS</div>
+        <div id="mm-action-items-empty" class="coaching-placeholder" style="font-size:0.73rem; padding:0.3rem 0; margin:0;">No action items captured yet</div>
+        <div id="mm-action-items-list"></div>
+      </div>
+      <div id="mm-decisions-section" style="margin-top:0.4rem;">
+        <div class="mm-capture-header" style="color:var(--mm-primary); font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:0.3rem 0;">\u2705 DECISIONS</div>
+        <div id="mm-decisions-empty" class="coaching-placeholder" style="font-size:0.73rem; padding:0.3rem 0; margin:0;">No decisions captured yet</div>
+        <div id="mm-decisions-list"></div>
+      </div>
+      <div id="mm-scope-alerts-section" style="margin-top:0.4rem;">
+        <div class="mm-capture-header" style="color:var(--mm-flag); font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:0.3rem 0;">\uD83D\uDEA8 SCOPE ALERTS</div>
+        <div id="mm-scope-alerts-empty" class="coaching-placeholder" style="font-size:0.73rem; padding:0.3rem 0; margin:0;">No scope issues detected</div>
+        <div id="mm-scope-alerts-list"></div>
+      </div>
+      <div id="mm-timeline-alerts-section" style="margin-top:0.4rem;">
+        <div class="mm-capture-header" style="color:var(--mm-accent); font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:0.3rem 0;">\u23f0 TIMELINE ALERTS</div>
+        <div id="mm-timeline-alerts-empty" class="coaching-placeholder" style="font-size:0.73rem; padding:0.3rem 0; margin:0;">No timeline risks detected</div>
+        <div id="mm-timeline-alerts-list"></div>
+      </div>
+      <div style="margin-top:0.6rem; border-top:1px solid var(--mm-border); padding-top:0.4rem;">
+        <div class="coaching-placeholder" id="coaching-placeholder">
+          <strong>No coaching alerts yet</strong>
+          Start speaking \u2014 real-time AI coaching<br>
+          prompts will appear here.
+        </div>
+      </div>`;
+  }
+
+  // ── Fact-Check Alerts (array-backed — survives any DOM wipe) ─────────────
+  // Source of truth lives in MM.factChecks[].  Even if the panel innerHTML is
+  // overwritten 100 times, MM_renderFactChecks() rebuilds from the array.
+  const MM = window.MM || {};
+  window.MM = MM;
+  MM.factChecks  = MM.factChecks || [];
+  MM.actionItems  = MM.actionItems || [];
+  MM.decisions    = MM.decisions || [];
+  MM.scopeAlerts    = MM.scopeAlerts || [];
+  MM.timelineAlerts = MM.timelineAlerts || [];
+
+  const _fcSeverityClass = { 'OK': 'fact-ok', 'NOTABLE': 'fact-notable', 'FLAG': 'fact-flag' };
+  const _fcSeverityIcon  = { 'OK': '\u2705', 'NOTABLE': '\u26a0\ufe0f', 'FLAG': '\ud83d\udea8' };
+
+  function appendFactCheck(msg) {
+    MM.factChecks.push({ ...msg, _id: Date.now() });
+    MM_renderFactChecks();
+  }
+
+  function MM_renderFactChecks() {
+    if (!MM.factChecks.length) return;
+
+    let container = document.getElementById('mm-fact-checks');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'mm-fact-checks';
+      container.className = 'fact-check-section';
+      suggList.appendChild(container);
+    }
+
+    container.innerHTML = '<div class="fact-check-header">Fact Checks</div>'
+      + MM.factChecks.map(fc => {
+        const cls = _fcSeverityClass[fc.severity] || 'fact-notable';
+        const icon = _fcSeverityIcon[fc.severity] || '\u26a0\ufe0f';
+        const ts = fc.timestamp ? new Date(fc.timestamp * 1000).toLocaleTimeString() : '';
+        return `<div class="fact-check-card ${cls}">
+          <span class="fc-time">${ts}</span>
+          <span>${icon}</span>
+          <span class="fc-entity">${fc.entity}</span>
+          <span class="fc-variance ${cls}">${fc.variance_pct.toFixed(1)}% variance</span>
+          <div class="fc-stored">KB: ${fc.stored_text}</div>
+        </div>`;
+      }).join('');
+  }
+
+  function clearFactChecks() {
+    MM.factChecks = [];
+    const el = document.getElementById('mm-fact-checks');
+    if (el) el.remove();
+  }
+
+  // ── S8-002: Action Item & Decision rendering ──────────────────────────────
+
+  function _escHtml(s) {
+    return String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function appendActionItem(data) {
+    MM.actionItems.push(data);
+    _renderActionItems();
+  }
+
+  function appendAiDecision(data) {
+    MM.decisions.push(data);
+    _renderDecisions();
+  }
+
+  function _renderActionItems() {
+    const list = document.getElementById('mm-action-items-list');
+    const empty = document.getElementById('mm-action-items-empty');
+    if (!list) return;
+    if (MM.actionItems.length > 0) { empty.style.display = 'none'; }
+    else { empty.style.display = ''; list.innerHTML = ''; return; }
+
+    list.innerHTML = MM.actionItems.map(ai => {
+      const ownerCls = ai.owner ? 'mm-chip-owner' : 'mm-chip-owner unassigned';
+      const ownerTxt = ai.owner ? '\ud83d\udc64 ' + _escHtml(ai.owner) : '\ud83d\udc64 Unassigned';
+      const deadlineChip = ai.deadline
+        ? `<span class="mm-chip mm-chip-deadline">\ud83d\udcc5 ${_escHtml(ai.deadline)}</span>`
+        : '';
+      const phaseChip = ai.cpmai_phase
+        ? `<span class="mm-chip mm-chip-phase">${_escHtml(ai.cpmai_phase)}</span>`
+        : '';
+      return `<div class="mm-capture-card" data-item-id="${ai.id}">
+        <button class="mm-card-dismiss" onclick="dismissActionItem('${ai.id}')" title="Dismiss">\u00d7</button>
+        <div class="mm-card-text">${_escHtml(ai.text)}</div>
+        <div class="mm-card-chips">
+          <span class="mm-chip ${ownerCls}">${ownerTxt}</span>
+          ${deadlineChip}
+          ${phaseChip}
+        </div>
+        ${ai.source_quote ? `<div class="mm-card-quote">"${_escHtml(ai.source_quote)}"</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function _renderDecisions() {
+    const list = document.getElementById('mm-decisions-list');
+    const empty = document.getElementById('mm-decisions-empty');
+    if (!list) return;
+    if (MM.decisions.length > 0) { empty.style.display = 'none'; }
+    else { empty.style.display = ''; list.innerHTML = ''; return; }
+
+    list.innerHTML = MM.decisions.map(d => {
+      const madeByChip = d.made_by
+        ? `<span class="mm-chip mm-chip-made-by">\ud83d\udc64 ${_escHtml(d.made_by)}</span>`
+        : '';
+      const phaseChip = d.cpmai_phase
+        ? `<span class="mm-chip mm-chip-phase">${_escHtml(d.cpmai_phase)}</span>`
+        : '';
+      return `<div class="mm-capture-card" data-decision-id="${d.id}">
+        <button class="mm-card-dismiss" onclick="dismissAiDecision('${d.id}')" title="Dismiss">\u00d7</button>
+        <div class="mm-card-text">${_escHtml(d.text)}</div>
+        <div class="mm-card-chips">
+          ${madeByChip}
+          ${phaseChip}
+        </div>
+        ${d.source_quote ? `<div class="mm-card-quote">"${_escHtml(d.source_quote)}"</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  async function dismissActionItem(id) {
+    MM.actionItems = MM.actionItems.filter(ai => ai.id !== id);
+    _renderActionItems();
+    try { await fetch(`${API}/meeting/action-items/${id}`, { method: 'DELETE' }); } catch {}
+  }
+
+  async function dismissAiDecision(id) {
+    MM.decisions = MM.decisions.filter(d => d.id !== id);
+    _renderDecisions();
+    try { await fetch(`${API}/meeting/ai-decisions/${id}`, { method: 'DELETE' }); } catch {}
+  }
+
+  function clearActionItems() {
+    MM.actionItems = [];
+    const list = document.getElementById('mm-action-items-list');
+    if (list) list.innerHTML = '';
+    const empty = document.getElementById('mm-action-items-empty');
+    if (empty) empty.style.display = '';
+  }
+
+  function clearAiDecisions() {
+    MM.decisions = [];
+    const list = document.getElementById('mm-decisions-list');
+    if (list) list.innerHTML = '';
+    const empty = document.getElementById('mm-decisions-empty');
+    if (empty) empty.style.display = '';
+  }
+
+  // ── S8-003: Scope Creep Alerts ─────────────────────────────────────────────
+  function appendScopeAlert(data) {
+    MM.scopeAlerts.push(data);
+    _renderScopeAlerts();
+  }
+
+  function _renderScopeAlerts() {
+    const list = document.getElementById('mm-scope-alerts-list');
+    const empty = document.getElementById('mm-scope-alerts-empty');
+    const header = document.querySelector('#mm-scope-alerts-section .mm-capture-header');
+    if (!list) return;
+    if (MM.scopeAlerts.length > 0) { empty.style.display = 'none'; }
+    else { empty.style.display = ''; list.innerHTML = ''; if (header) header.innerHTML = '\uD83D\uDEA8 SCOPE ALERTS'; return; }
+
+    if (header) header.innerHTML = `\uD83D\uDEA8 SCOPE ALERTS (${MM.scopeAlerts.length})`;
+
+    list.innerHTML = MM.scopeAlerts.map(a => {
+      const sev = (a.severity || 'warning').toLowerCase();
+      const sevBadge = `<span class="mm-scope-badge ${sev}">${sev.toUpperCase()}</span>`;
+      const typeChip = a.alert_type
+        ? `<span class="mm-chip mm-chip-scope-type">${_escHtml(a.alert_type.replace(/_/g, ' '))}</span>`
+        : '';
+      const matchedChip = a.matched_term
+        ? `<span class="mm-chip mm-chip-matched">\uD83D\uDCCB Related to: ${_escHtml(a.matched_term)}</span>`
+        : '';
+      const suggestion = a.suggestion
+        ? `<div class="mm-scope-suggestion">\uD83D\uDCA1 ${_escHtml(a.suggestion)}</div>`
+        : '';
+      return `<div class="mm-capture-card mm-scope-card ${sev}" data-scope-id="${a.id}">
+        <button class="mm-card-dismiss" onclick="dismissScopeAlert('${a.id}')" title="Dismiss">\u00d7</button>
+        <div style="margin-bottom:0.2rem;">${sevBadge} ${typeChip}</div>
+        <div class="mm-card-text">${_escHtml(a.text)}</div>
+        <div class="mm-card-chips">${matchedChip}</div>
+        ${a.source_quote ? `<div class="mm-card-quote">"\u200B${_escHtml(a.source_quote)}"</div>` : ''}
+        ${suggestion}
+      </div>`;
+    }).join('');
+  }
+
+  async function dismissScopeAlert(id) {
+    MM.scopeAlerts = MM.scopeAlerts.filter(a => a.id !== id);
+    _renderScopeAlerts();
+    try { await fetch(`${API}/meeting/scope-alerts/${id}`, { method: 'DELETE' }); } catch {}
+  }
+
+  function clearScopeAlerts() {
+    MM.scopeAlerts = [];
+    const list = document.getElementById('mm-scope-alerts-list');
+    if (list) list.innerHTML = '';
+    const empty = document.getElementById('mm-scope-alerts-empty');
+    if (empty) empty.style.display = '';
+    const header = document.querySelector('#mm-scope-alerts-section .mm-capture-header');
+    if (header) header.innerHTML = '\uD83D\uDEA8 SCOPE ALERTS';
+  }
+
+  // ── S8-004: Timeline Alerts ───────────────────────────────────────────────
+  const _timelineTypeLabels = {
+    'delay_language': 'Delay',
+    'milestone_risk': 'Milestone Risk',
+    'optimism_bias': 'Optimism Bias',
+    'dependency_blocker': 'Dependency',
+    'schedule_compression': 'Compression',
+  };
+
+  function appendTimelineAlert(data) {
+    MM.timelineAlerts.push(data);
+    _renderTimelineAlerts();
+  }
+
+  function _renderTimelineAlerts() {
+    const list = document.getElementById('mm-timeline-alerts-list');
+    const empty = document.getElementById('mm-timeline-alerts-empty');
+    const header = document.querySelector('#mm-timeline-alerts-section .mm-capture-header');
+    if (!list) return;
+    if (MM.timelineAlerts.length > 0) { empty.style.display = 'none'; }
+    else { empty.style.display = ''; list.innerHTML = ''; if (header) header.innerHTML = '\u23f0 TIMELINE ALERTS'; return; }
+
+    if (header) header.innerHTML = `\u23f0 TIMELINE ALERTS (${MM.timelineAlerts.length})`;
+
+    list.innerHTML = MM.timelineAlerts.map(a => {
+      const sev = (a.severity || 'warning').toLowerCase();
+      const sevBadge = `<span class="mm-scope-badge ${sev}">${sev.toUpperCase()}</span>`;
+      const typeLabel = _timelineTypeLabels[a.alert_type] || a.alert_type;
+      const typeChip = `<span class="mm-chip" style="background:var(--mm-primary-mid);color:#fff;font-size:0.62rem;padding:0.08rem 0.35rem;border-radius:3px;">${_escHtml(typeLabel)}</span>`;
+      const milestoneChip = a.affected_milestone
+        ? `<span class="mm-chip" style="background:var(--mm-notable);color:#fff;font-size:0.62rem;padding:0.08rem 0.35rem;border-radius:3px;">\ud83d\udcc5 Milestone at risk: ${_escHtml(a.affected_milestone)}</span>`
+        : '';
+      const daysChip = a.days_at_risk != null
+        ? `<span class="mm-chip" style="background:var(--mm-flag);color:#fff;font-size:0.62rem;padding:0.08rem 0.35rem;border-radius:3px;">\u26a0\ufe0f ~${a.days_at_risk} days at risk</span>`
+        : '';
+      const suggestion = a.suggestion
+        ? `<div class="mm-scope-suggestion">\ud83d\udca1 ${_escHtml(a.suggestion)}</div>`
+        : '';
+      return `<div class="mm-capture-card mm-scope-card ${sev}" data-timeline-id="${a.id}">
+        <button class="mm-card-dismiss" onclick="dismissTimelineAlert('${a.id}')" title="Dismiss">\u00d7</button>
+        <div style="margin-bottom:0.2rem;">${sevBadge} ${typeChip}</div>
+        <div class="mm-card-text">${_escHtml(a.text)}</div>
+        <div class="mm-card-chips">${milestoneChip} ${daysChip}</div>
+        ${a.source_quote ? `<div class="mm-card-quote">"\u200B${_escHtml(a.source_quote)}"</div>` : ''}
+        ${suggestion}
+      </div>`;
+    }).join('');
+  }
+
+  async function dismissTimelineAlert(id) {
+    MM.timelineAlerts = MM.timelineAlerts.filter(a => a.id !== id);
+    _renderTimelineAlerts();
+    try { await fetch(`${API}/meeting/timeline-alerts/${id}`, { method: 'DELETE' }); } catch {}
+  }
+
+  function clearTimelineAlerts() {
+    MM.timelineAlerts = [];
+    const list = document.getElementById('mm-timeline-alerts-list');
+    if (list) list.innerHTML = '';
+    const empty = document.getElementById('mm-timeline-alerts-empty');
+    if (empty) empty.style.display = '';
+    const header = document.querySelector('#mm-timeline-alerts-section .mm-capture-header');
+    if (header) header.innerHTML = '\u23f0 TIMELINE ALERTS';
+  }
+
+  function clearTranscript() {
+    feed.innerHTML = '';
+    transcriptBuffer = [];
+  }
+
+  // ── Manual [Them] transcript injection ───────────────────────────────────
+  async function submitThemTranscript() {
+    const input = document.getElementById('them-text-input');
+    const btn   = document.getElementById('them-submit-btn');
+    const text  = (input.value || '').trim();
+    if (!text) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const res = await fetch('/meeting/them-transcript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        input.value = '';
+      } else {
+        console.warn('[Them] inject error:', data.error || data);
+      }
+    } catch (err) {
+      console.error('[Them] inject fetch error:', err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Submit';
+    }
+  }
+
+  // Allow Enter key to submit.
+  document.getElementById('them-text-input')
+    .addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitThemTranscript();
+      }
+    });
+
+  // ── AI Suggestions ────────────────────────────────────────────────────────
+  // Accumulated facts — new extractions merge into this, never erase it.
+  let _currentFacts = { decision: null, owner: null, deadline: null, risk: null, action: null };
+  let _hasRenderedFacts = false;  // true once first real facts are shown
+
+  function showSkeletonCards() {
+    // Only show skeleton if we haven't rendered real facts yet.
+    // Otherwise keep the current panel visible (no flash).
+    if (_hasRenderedFacts) return;
+    suggList.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+      const card = document.createElement('div');
+      card.className = 'skeleton-card';
+      card.innerHTML = `
+        <div class="skeleton-line short"></div>
+        <div class="skeleton-line long"></div>
+        <div class="skeleton-line medium"></div>
+      `;
+      suggList.appendChild(card);
+    }
+    MM_renderFactChecks();
+  }
+
+  function startAutoSuggest() {
+    stopAutoSuggest();
+    autoSuggestTimer = setInterval(() => {
+      if (transcriptBuffer.length >= AUTO_SUGGEST_MIN_CHUNKS) {
+        getSuggestions({ silent: true });
+      }
+    }, AUTO_SUGGEST_MS);
+  }
+
+  function stopAutoSuggest() {
+    clearInterval(autoSuggestTimer);
+    autoSuggestTimer = null;
+  }
+
+  async function getSuggestions({ silent = false } = {}) {
+    if (!transcriptBuffer.length) {
+      if (!silent) showError('No transcript yet — start your meeting and speak first.');
+      return;
+    }
+    if (_isFetchingSuggestions) return;   // prevent overlapping fetches
+    _isFetchingSuggestions = true;
+
+    showSkeletonCards();
+
+    try {
+      const res = await fetch(`${API}/suggestions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: transcriptBuffer.join(' ') }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.error || res.statusText);
+      }
+      const data = await res.json();
+      mergeAndRenderFacts(data.facts);
+    } catch (e) {
+      // On error, keep the current panel — never flash or clear.
+      if (!silent) {
+        showError('Key Facts: ' + e.message);
+      }
+    } finally {
+      _isFetchingSuggestions = false;
+    }
+  }
+
+  function mergeAndRenderFacts(facts) {
+    if (!facts) return;
+    // Merge: only update fields that have non-empty values.
+    // Keep previous values if new extraction returns empty/null.
+    for (const key of ['decision', 'owner', 'deadline', 'risk', 'action']) {
+      if (facts[key]) {
+        _currentFacts[key] = facts[key];
+      }
+    }
+    renderKeyFacts(_currentFacts);
+  }
+
+  function renderKeyFacts(facts) {
+    _hasRenderedFacts = true;
+    const rows = [
+      ['Decision', facts.decision],
+      ['Owner',    facts.owner],
+      ['Deadline', facts.deadline],
+      ['Risk',     facts.risk],
+      ['Action',   facts.action],
+    ].map(([label, value]) => {
+      const cls = value ? 'fact-value' : 'fact-value empty';
+      const display = value ? escHtml(value) : '—';
+      return `<div class="fact-row">
+        <span class="fact-label">${label}</span>
+        <span class="${cls}">${display}</span>
+      </div>`;
+    }).join('');
+
+    suggList.innerHTML = `
+      <div class="fact-panel">
+        <div class="fact-header">📌 KEY FACTS</div>
+        <div class="fact-divider"></div>
+        ${rows}
+        <div class="fact-divider"></div>
+      </div>
+    `;
+    MM_renderFactChecks();
+  }
 
   // ── RMS meter ─────────────────────────────────────────────────────────────
   function updateRmsMeter(rms, threshold, captured, passed) {
+    // Reset the 3-second "signal lost" watchdog
     clearTimeout(rmsWatchdogTimer);
     if (meetingActive) {
       rmsWatchdogTimer = setTimeout(() => {
         document.getElementById('rms-value').textContent = '⚠ signal lost';
         document.getElementById('rms-fill').style.width = '0%';
+        document.getElementById('rms-fill').classList.add('silent');
       }, 3000);
     }
 
+    // dBFS scale: [-80, 0] → [0%, 100%]
     const db    = 20 * Math.log10(Math.max(rms, 1e-9));
     const pct   = Math.max(0, Math.min(100, (80 + db) / 80 * 100));
     const thDb  = 20 * Math.log10(Math.max(threshold, 1e-9));
@@ -594,28 +3679,336 @@
     document.getElementById('rms-threshold-line').style.left = thPct + '%';
     document.getElementById('rms-value').textContent = rms < 0.00001 ? '—' : rms.toFixed(5);
 
+    // Pipeline stats
     if (captured !== undefined) {
       const statsEl = document.getElementById('rms-stats');
-      statsEl.textContent = passed > 0
-        ? `${captured} captured · ${passed} transcribed`
-        : captured > 0 ? `${captured} captured · 0 transcribed` : '';
-      statsEl.className = `rms-stats ${passed > 0 ? 'transcribing' : captured > 0 ? 'active' : ''}`;
+      if (passed > 0) {
+        statsEl.textContent = `${captured} captured · ${passed} transcribed`;
+        statsEl.className   = 'rms-stats transcribing';
+      } else if (captured > 0) {
+        statsEl.textContent = `${captured} captured · 0 transcribed`;
+        statsEl.className   = 'rms-stats active';
+      } else {
+        statsEl.textContent = '';
+        statsEl.className   = 'rms-stats';
+      }
     }
+  }
+
+  // ── Guest modal ───────────────────────────────────────────────────────────
+  async function openGuestModal() {
+    try {
+      const res = await fetch(`${API}/guest/session`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showError(`Guest session: ${err.error || res.statusText}`);
+        return;
+      }
+      const data = await res.json();
+      _guestPin = data.pin;
+      const guestUrl = `${location.origin}${data.guest_url}`;
+      document.getElementById('guest-modal-pin').textContent = data.pin;
+      document.getElementById('guest-modal-url').textContent  = guestUrl;
+      document.getElementById('guest-modal').style.display    = 'flex';
+    } catch (e) {
+      showError('Could not create guest session — is the server running?');
+    }
+  }
+
+  function closeGuestModal() {
+    document.getElementById('guest-modal').style.display = 'none';
+  }
+
+  function copyGuestUrl(btn) {
+    const url = document.getElementById('guest-modal-url').textContent;
+    navigator.clipboard.writeText(url).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copied!';
+      btn.style.background = '#2E7D32';
+      setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1800);
+    }).catch(() => {
+      showError('Copy failed — please copy the URL manually.');
+    });
+  }
+
+  // Close modal on overlay click
+  document.getElementById('guest-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeGuestModal();
+  });
+
+  // ── Guest Viewer Link ──────────────────────────────────────────────────────
+
+  let _guestViewToken = null;
+  let _guestViewPollTimer = null;
+
+  async function openGuestViewModal() {
+    try {
+      const res = await fetch(`${API}/guest/generate`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showError(`Guest view: ${err.detail || res.statusText}`);
+        return;
+      }
+      const data = await res.json();
+      _guestViewToken = data.token;
+      document.getElementById('guest-view-url').textContent = data.url;
+      document.getElementById('guest-view-count').textContent = '0 guests connected';
+      document.getElementById('guest-view-copy-msg').style.display = 'none';
+      document.getElementById('guest-view-modal').style.display = 'flex';
+      // Auto-copy to clipboard
+      try {
+        await navigator.clipboard.writeText(data.url);
+        document.getElementById('guest-view-copy-msg').style.display = 'block';
+        setTimeout(() => { document.getElementById('guest-view-copy-msg').style.display = 'none'; }, 3000);
+      } catch (_) {}
+      // Start polling for guest count
+      startGuestViewPoll();
+    } catch (e) {
+      showError('Could not generate guest link — is the server running?');
+    }
+  }
+
+  function closeGuestViewModal() {
+    document.getElementById('guest-view-modal').style.display = 'none';
+    stopGuestViewPoll();
+  }
+
+  function copyGuestViewUrl(btn) {
+    const url = document.getElementById('guest-view-url').textContent;
+    navigator.clipboard.writeText(url).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = '\u2713 Copied!';
+      btn.style.background = '#2E7D32';
+      setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1800);
+    }).catch(() => {
+      showError('Copy failed — please copy the URL manually.');
+    });
+  }
+
+  async function revokeGuestView() {
+    if (!_guestViewToken) return;
+    try {
+      await fetch(`${API}/guest/view/${_guestViewToken}`, { method: 'DELETE' });
+      document.getElementById('guest-view-url').textContent = '(link revoked)';
+      document.getElementById('guest-view-count').textContent = 'Link revoked';
+      document.getElementById('btn-revoke-view').disabled = true;
+      stopGuestViewPoll();
+      _guestViewToken = null;
+    } catch (_) {}
+  }
+
+  function startGuestViewPoll() {
+    stopGuestViewPoll();
+    _guestViewPollTimer = setInterval(async () => {
+      if (!_guestViewToken) return;
+      try {
+        const res = await fetch(`${API}/guest/view/${_guestViewToken}/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const names = data.guests || [];
+        const countEl = document.getElementById('guest-view-count');
+        if (names.length === 0) {
+          countEl.textContent = '0 guests connected';
+        } else {
+          countEl.textContent = `${names.length} guest${names.length > 1 ? 's' : ''}: ${names.join(', ')}`;
+        }
+        if (!data.active) {
+          countEl.textContent = 'Link expired';
+          stopGuestViewPoll();
+        }
+      } catch (_) {}
+    }, 5000);
+  }
+
+  function stopGuestViewPoll() {
+    if (_guestViewPollTimer) {
+      clearInterval(_guestViewPollTimer);
+      _guestViewPollTimer = null;
+    }
+  }
+
+  // Close modal on overlay click
+  document.getElementById('guest-view-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeGuestViewModal();
+  });
+
+  // ── KB Seed ────────────────────────────────────────────────────────────────
+
+  function openKBModal() {
+    document.getElementById('kb-modal').style.display = 'flex';
+    showKBStatus();
+    loadKBGlobalStatus();
+  }
+
+  function closeKBModal() {
+    document.getElementById('kb-modal').style.display = 'none';
+  }
+
+  function handleKBFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    document.getElementById('kb-file-name').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      document.getElementById('kb-textarea').value = e.target.result;
+    };
+    reader.readAsText(file);
+  }
+
+  async function submitKBSeed() {
+    const content = document.getElementById('kb-textarea').value.trim();
+    if (!content) { showError('Paste or upload some context first.'); return; }
+    const btn = document.getElementById('kb-submit-btn');
+    const orig = btn.textContent;
+    btn.textContent = 'Seeding…';
+    btn.disabled = true;
+    try {
+      const resp = await fetch('/knowledge/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${resp.status}`);
+      }
+      const data = await resp.json();
+      btn.textContent = '✓ Seeded!';
+      btn.style.background = '#2E7D32';
+      localStorage.setItem('kb_last_seeded', new Date().toISOString());
+      setTimeout(() => { btn.textContent = orig; btn.style.background = ''; btn.disabled = false; }, 2000);
+      showKBStatus();
+    } catch (err) {
+      showError('KB seed failed: ' + err.message);
+      btn.textContent = orig;
+      btn.disabled = false;
+    }
+  }
+
+  async function showKBStatus() {
+    const el = document.getElementById('kb-status');
+    try {
+      const resp = await fetch('/knowledge/seed/status');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const parts = [];
+      parts.push(`<b>Facts stored:</b> ${data.facts_count}`);
+      const lastSeeded = data.last_seeded || localStorage.getItem('kb_last_seeded');
+      if (lastSeeded) {
+        parts.push(`<b>Last seeded:</b> ${new Date(lastSeeded).toLocaleString()}`);
+      }
+      const entities = data.entities || {};
+      const tags = [];
+      for (const [key, vals] of Object.entries(entities)) {
+        if (!Array.isArray(vals) || !vals.length) continue;
+        for (const v of vals.slice(0, 5)) {
+          if (typeof v === 'string') tags.push(v);
+          else if (v && typeof v === 'object') tags.push(v.text || v.verb || JSON.stringify(v));
+        }
+      }
+      if (tags.length) {
+        parts.push(`<b>Entities:</b> ${tags.map(t => `<span style="background:var(--mm-bg);padding:1px 6px;border-radius:4px;font-size:0.72rem;color:var(--mm-primary);">${t}</span>`).join(' ')}`);
+      }
+      if (parts.length && data.facts_count > 0) {
+        el.innerHTML = parts.join('<br>');
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    } catch { el.style.display = 'none'; }
+  }
+
+  async function loadKBGlobalStatus() {
+    const wrap = document.getElementById('kb-global-status');
+    try {
+      const resp = await fetch('/kb/status');
+      if (!resp.ok) { wrap.style.display = 'none'; return; }
+      const d = await resp.json();
+      const pmCount = d.pm_global?.document_count ?? 0;
+      const projCount = d.project_kb?.document_count ?? 0;
+      const total = d.total_documents ?? 0;
+      const pmColor = pmCount > 0 ? '#2E7D32' : '#E65100';
+      document.getElementById('kb-pm-count').innerHTML =
+        `<span style="color:${pmColor}; font-weight:600;">PM Global KB: ${pmCount} docs</span>`;
+      document.getElementById('kb-project-count').textContent =
+        `Project KB: ${projCount} docs` + (d.project_kb?.project_name ? ` (${d.project_kb.project_name})` : '');
+      document.getElementById('kb-total-count').textContent = `Total: ${total} documents available`;
+      wrap.style.display = 'block';
+    } catch { wrap.style.display = 'none'; }
+  }
+
+  async function forceReseedPMKB() {
+    const btn = document.getElementById('kb-reseed-btn');
+    btn.textContent = 'Reseeding…';
+    btn.disabled = true;
+    try {
+      const resp = await fetch('/kb/reseed', { method: 'POST' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      btn.textContent = '✓ Reseeded';
+      btn.style.color = '#2E7D32';
+      setTimeout(() => { btn.textContent = 'Force Reseed'; btn.style.color = ''; btn.disabled = false; }, 2000);
+      loadKBGlobalStatus();
+    } catch (err) {
+      btn.textContent = 'Failed';
+      btn.style.color = '#D32F2F';
+      setTimeout(() => { btn.textContent = 'Force Reseed'; btn.style.color = ''; btn.disabled = false; }, 2000);
+    }
+  }
+
+  // Close KB modal on overlay click
+  document.getElementById('kb-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeKBModal();
+  });
+
+  // ── 1:1 Mode ──────────────────────────────────────────────────────────────
+  function toggleOneToneMode(enabled) {
+    _oneToOneMode = enabled;
+    const label = document.getElementById('onetone-label');
+    label.classList.toggle('active', enabled);
+
+    if (enabled) {
+      // Auto-select the best system audio device
+      if (_recommendedSystem) {
+        systemSel.value = String(_recommendedSystem.index);
+      } else {
+        // Fall back to first non-empty option in system-select
+        const firstSys = Array.from(systemSel.options).find(o => o.value !== '');
+        if (firstSys) systemSel.value = firstSys.value;
+      }
+    } else {
+      // Reset system audio to none
+      systemSel.value = '';
+    }
+    systemSel.dispatchEvent(new Event('change'));
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   function escHtml(str) {
     return String(str)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      .replace(/&/g, '&amp;').replace(/[<]/g, '&lt;')
+      .replace(/[>]/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // ── Boot ──────────────────────────────────────────────────────────────────
+  // ── Button wiring & boot ──────────────────────────────────────────────────
   btnStart.addEventListener('click', startMeeting);
   btnStop.addEventListener('click',  stopMeeting);
   document.getElementById('btn-reset').addEventListener('click', resetMeeting);
 
+  // Ctrl+Shift+R → reset meeting (prevent browser reload)
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+      e.preventDefault();
+      resetMeeting();
+    }
+  });
+
   init();
+
+  // ── PWA Service Worker ─────────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
 </script>
+
 </body>
 </html>

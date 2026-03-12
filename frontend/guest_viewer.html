@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeetingMind Live</title>
+  <style>
+    :root {
+      --mm-bg:           #F5F5F5;
+      --mm-surface:      #FFFFFF;
+      --mm-primary:      #00695C;
+      --mm-primary-mid:  #009688;
+      --mm-accent:       #E65100;
+      --mm-accent-hover: #EF6C00;
+      --mm-text:         #212121;
+      --mm-text-muted:   #757575;
+      --mm-border:       #E0E0E0;
+      --mm-ok:           #2E7D32;
+      --mm-notable:      #F57C00;
+      --mm-flag:         #C62828;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--mm-bg);
+      color: var(--mm-text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--mm-primary);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .logo-icon {
+      width: 26px; height: 26px; background: #FFFFFF33; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+    }
+    .logo-text { font-size: 0.95rem; font-weight: 600; color: #FFFFFF; }
+    .header-status {
+      margin-left: auto; font-size: 0.75rem; color: #FFFFFFCC;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #22c55e;
+      box-shadow: 0 0 6px #22c55e88;
+    }
+    .status-dot.ended { background: var(--mm-flag); box-shadow: none; }
+
+    /* Name gate */
+    #name-gate {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 2rem;
+    }
+    .name-card {
+      background: var(--mm-surface); border: 1px solid var(--mm-border);
+      border-radius: 14px; padding: 2rem 1.75rem; max-width: 360px; width: 100%;
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    .name-card h2 { font-size: 1.1rem; font-weight: 600; color: var(--mm-text); }
+    .name-card p { font-size: 0.82rem; color: var(--mm-text-muted); line-height: 1.5; }
+    .name-input {
+      width: 100%; background: var(--mm-bg); border: 1px solid var(--mm-border);
+      border-radius: 8px; color: var(--mm-text); font-size: 1rem;
+      padding: 0.7rem 1rem; outline: none; transition: border-color 0.2s;
+    }
+    .name-input:focus { border-color: var(--mm-primary-mid); }
+    .btn-join {
+      width: 100%; padding: 0.85rem; background: var(--mm-accent); color: white;
+      font-size: 1rem; font-weight: 600; border: none; border-radius: 8px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .btn-join:hover { background: var(--mm-accent-hover); }
+
+    /* Panels */
+    #panels {
+      flex: 1; display: none; flex-direction: row; min-height: 0; overflow: hidden;
+    }
+    .panel {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .panel + .panel { border-left: 1px solid var(--mm-border); }
+    .panel-header {
+      padding: 0.65rem 1rem; font-size: 0.67rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--mm-primary); border-bottom: 1px solid var(--mm-border);
+    }
+    .panel-body {
+      flex: 1; overflow-y: auto; padding: 0.75rem 1rem;
+      display: flex; flex-direction: column; gap: 0.5rem;
+    }
+    .panel-placeholder {
+      color: var(--mm-text-muted); font-size: 0.82rem; text-align: center;
+      margin: auto; padding: 2rem 1rem; line-height: 1.8;
+    }
+
+    /* Fact-check cards */
+    .fc-card {
+      background: var(--mm-surface); border: 1px solid var(--mm-border);
+      border-left: 3px solid var(--mm-text-muted); border-radius: 7px;
+      padding: 0.55rem 0.75rem; font-size: 0.8rem; line-height: 1.4;
+      animation: fadeIn 0.2s ease;
+    }
+    .fc-card.severity-ok      { border-left-color: var(--mm-ok); }
+    .fc-card.severity-notable { border-left-color: var(--mm-notable); }
+    .fc-card.severity-flag    { border-left-color: var(--mm-flag); }
+    .fc-entity { font-weight: 600; color: var(--mm-text); }
+    .fc-detail { font-size: 0.75rem; color: var(--mm-text-muted); margin-top: 0.2rem; }
+    .fc-severity {
+      display: inline-block; font-size: 0.62rem; font-weight: 700;
+      padding: 1px 5px; border-radius: 3px; letter-spacing: 0.04em;
+    }
+    .fc-severity.ok      { background: #E8F5E9; color: var(--mm-ok); }
+    .fc-severity.notable { background: #FFF3E0; color: var(--mm-notable); }
+    .fc-severity.flag    { background: #FFEBEE; color: var(--mm-flag); }
+
+    /* Key facts list */
+    .kf-section {
+      border-bottom: 1px solid var(--mm-border); padding-bottom: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .kf-section:last-child { border-bottom: none; margin-bottom: 0; }
+    .kf-label {
+      font-size: 0.65rem; font-weight: 700; color: var(--mm-primary-mid);
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem;
+    }
+    .kf-value { font-size: 0.82rem; color: var(--mm-text); line-height: 1.5; }
+    .kf-empty { color: var(--mm-text-muted); font-style: italic; }
+
+    /* Meeting ended overlay */
+    #ended-overlay {
+      display: none; position: fixed; inset: 0; background: #00000044;
+      z-index: 100; align-items: center; justify-content: center;
+    }
+    .ended-card {
+      background: var(--mm-surface); border: 1px solid var(--mm-border);
+      border-radius: 14px; padding: 2rem; text-align: center; max-width: 340px;
+    }
+    .ended-card h2 { font-size: 1.1rem; color: var(--mm-text); margin-bottom: 0.5rem; }
+    .ended-card p { font-size: 0.82rem; color: var(--mm-text-muted); }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+    ::-webkit-scrollbar       { width: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--mm-border); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">&#129504;</div>
+  <span class="logo-text">MeetingMind Live</span>
+  <div class="header-status">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">Connecting...</span>
+  </div>
+</header>
+
+<!-- Name entry gate -->
+<div id="name-gate">
+  <div class="name-card">
+    <h2>Join as Viewer</h2>
+    <p>Enter your name to view live fact-checks and key facts from this meeting. Read-only access — no audio or controls.</p>
+    <input class="name-input" id="name-input" type="text" placeholder="Your name" autocomplete="off" />
+    <button class="btn-join" id="btn-join" onclick="joinAsViewer()">Join Meeting</button>
+  </div>
+</div>
+
+<!-- Two-panel content area -->
+<div id="panels">
+  <div class="panel">
+    <div class="panel-header">Fact Check</div>
+    <div class="panel-body" id="fc-feed">
+      <div class="panel-placeholder" id="fc-placeholder">
+        Waiting for fact-check alerts...<br>
+        Alerts appear when spoken numbers differ from stored knowledge.
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-header">Key Facts</div>
+    <div class="panel-body" id="kf-feed">
+      <div class="panel-placeholder" id="kf-placeholder">
+        Waiting for key facts...<br>
+        Facts auto-update every 30 seconds during the meeting.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Meeting ended overlay -->
+<div id="ended-overlay">
+  <div class="ended-card">
+    <h2>Meeting has ended</h2>
+    <p>This meeting session is no longer active. You can close this tab.</p>
+  </div>
+</div>
+
+<script>
+  let ws = null;
+  let guestName = '';
+
+  // Extract token from URL: /guest/view/{token}
+  const pathParts = window.location.pathname.split('/');
+  const token = pathParts[pathParts.length - 1];
+
+  function joinAsViewer() {
+    const name = document.getElementById('name-input').value.trim();
+    if (!name) {
+      document.getElementById('name-input').style.borderColor = '#C62828';
+      return;
+    }
+    guestName = name;
+    document.getElementById('name-gate').style.display = 'none';
+    document.getElementById('panels').style.display = 'flex';
+    connectWS();
+  }
+
+  // Enter key triggers join
+  document.getElementById('name-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') joinAsViewer();
+  });
+
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const url = `${proto}://${location.host}/guest/ws/${token}`;
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      // Send name as first message
+      ws.send(JSON.stringify({ name: guestName }));
+    };
+
+    ws.onmessage = (evt) => {
+      let msg;
+      try { msg = JSON.parse(evt.data); } catch { return; }
+
+      if (msg.type === 'status' && msg.status === 'connected') {
+        document.getElementById('status-dot').className = 'status-dot';
+        document.getElementById('status-text').textContent = 'Meeting in progress';
+      } else if (msg.type === 'fact_check') {
+        renderFactCheck(msg.data);
+      } else if (msg.type === 'key_facts') {
+        renderKeyFacts(msg.data);
+      } else if (msg.type === 'meeting_ended') {
+        showMeetingEnded();
+      } else if (msg.type === 'ping') {
+        ws.send(JSON.stringify({ type: 'pong' }));
+      }
+    };
+
+    ws.onclose = () => {
+      document.getElementById('status-dot').classList.add('ended');
+      document.getElementById('status-text').textContent = 'Disconnected';
+    };
+  }
+
+  function renderFactCheck(data) {
+    const feed = document.getElementById('fc-feed');
+    const placeholder = document.getElementById('fc-placeholder');
+    if (placeholder) placeholder.remove();
+
+    const severity = (data.severity || '').toLowerCase();
+    const card = document.createElement('div');
+    card.className = `fc-card severity-${severity}`;
+
+    const severityLabel = severity === 'ok' ? 'OK'
+      : severity === 'notable' ? 'NOTABLE'
+      : severity === 'flag' ? 'FLAG' : severity.toUpperCase();
+
+    card.innerHTML = `
+      <div>
+        <span class="fc-entity">${esc(data.entity || '')}</span>
+        <span class="fc-severity ${severity}">${severityLabel}</span>
+      </div>
+      <div class="fc-detail">
+        Spoken: ${esc(data.spoken_value || '')} | Stored: ${esc(data.stored_value || '')}
+        ${data.variance_pct != null ? ` | Variance: ${data.variance_pct.toFixed(1)}%` : ''}
+      </div>
+      ${data.stored_text ? `<div class="fc-detail">KB: ${esc(data.stored_text)}</div>` : ''}
+    `;
+
+    feed.prepend(card);
+  }
+
+  function renderKeyFacts(facts) {
+    const feed = document.getElementById('kf-feed');
+    const placeholder = document.getElementById('kf-placeholder');
+    if (placeholder) placeholder.remove();
+
+    feed.innerHTML = '';
+
+    if (typeof facts === 'object' && facts !== null) {
+      // facts can be an object with category keys or an array
+      const entries = Array.isArray(facts) ? facts : Object.entries(facts);
+
+      if (Array.isArray(facts)) {
+        // Array of fact strings
+        for (const f of facts) {
+          const div = document.createElement('div');
+          div.className = 'kf-section';
+          div.innerHTML = `<div class="kf-value">${esc(String(f))}</div>`;
+          feed.appendChild(div);
+        }
+      } else {
+        // Object: { category: value_or_array }
+        for (const [key, val] of Object.entries(facts)) {
+          const sec = document.createElement('div');
+          sec.className = 'kf-section';
+          const label = key.replace(/_/g, ' ').toUpperCase();
+          let valHtml;
+          if (Array.isArray(val)) {
+            valHtml = val.length
+              ? val.map(v => `<div class="kf-value">${esc(String(v))}</div>`).join('')
+              : `<div class="kf-value kf-empty">None detected</div>`;
+          } else if (val && typeof val === 'string') {
+            valHtml = `<div class="kf-value">${esc(val)}</div>`;
+          } else {
+            valHtml = `<div class="kf-value kf-empty">None detected</div>`;
+          }
+          sec.innerHTML = `<div class="kf-label">${label}</div>${valHtml}`;
+          feed.appendChild(sec);
+        }
+      }
+    }
+
+    if (feed.children.length === 0) {
+      feed.innerHTML = '<div class="panel-placeholder">No key facts yet</div>';
+    }
+  }
+
+  function showMeetingEnded() {
+    document.getElementById('status-dot').classList.add('ended');
+    document.getElementById('status-text').textContent = 'Meeting has ended';
+    document.getElementById('ended-overlay').style.display = 'flex';
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+</script>
+
+</body>
+</html>

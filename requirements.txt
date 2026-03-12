@@ -5,22 +5,32 @@
 #           macOS:    brew install ffmpeg
 #           Linux:    sudo apt install ffmpeg
 
-# ── Web server ────────────────────────────────────────────────────────────────
+# ── API & Web server ──────────────────────────────────────────────────────────
 fastapi==0.133.0             # Web framework for the API layer
 uvicorn==0.41.0              # ASGI server to run FastAPI
 websockets==16.0             # WebSocket support for real-time transcription streaming
 
-# ── Transcription ─────────────────────────────────────────────────────────────
+# ── AI & LLM ──────────────────────────────────────────────────────────────────
+anthropic==0.84.0            # Anthropic Claude API — summarisation & analysis
 openai-whisper==20250625     # Local Whisper model — transcription, no API key needed
 torch==2.10.0                # PyTorch backend required by Whisper
 
+# ── Vector store / Knowledge base ─────────────────────────────────────────────
+chromadb==1.5.1              # Embedded vector database for the meeting knowledge base
+
 # ── Audio ─────────────────────────────────────────────────────────────────────
 pyaudio==0.2.14              # Microphone input for real-time transcription
+
+# ── Document parsing (project brief extraction) ─────────────────────────────
+python-docx==1.2.0           # .docx file parsing for project brief upload
+pypdf==6.7.5                 # .pdf file parsing for project brief upload
+python-multipart==0.0.22     # FastAPI file upload support (UploadFile)
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 python-dotenv==1.2.1         # Load environment variables from .env
 numpy==2.4.2                 # Numerical ops (Whisper dependency)
 tqdm==4.67.3                 # Progress bars
+psutil>=5.9                  # Process priority control (BELOW_NORMAL on Windows)
 
 # ── Dev / testing ─────────────────────────────────────────────────────────────
 # pytest

@@ -43,8 +43,18 @@ outputs/summaries/
 outputs/action_items/
 outputs/reports/
 
-# ── Knowledge base artefacts ─────────────────────────────────────────────────
-data/knowledge_base/
+# ── Knowledge base & data artefacts ──────────────────────────────────────────
+data/
+!data/.gitkeep
+
+# ── Configuration (real values — use settings.example.toml) ──────────────────
+settings.toml
+config/settings.toml
+
+# ── Private / internal docs ──────────────────────────────────────────────────
+LinkedIN/
+Instructions/
+STARTUP.md
 
 # ── OS artefacts ─────────────────────────────────────────────────────────────
 .DS_Store

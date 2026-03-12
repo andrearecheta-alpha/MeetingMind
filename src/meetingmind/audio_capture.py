@@ -64,6 +64,7 @@ class AudioSource(str, Enum):
     """Identifies which physical source an audio chunk came from."""
     MICROPHONE = "microphone"   # Local microphone — captures the user's voice
     SYSTEM     = "system"       # WASAPI loopback — captures Zoom/Teams/Meet etc.
+    GUEST      = "guest"        # Remote participant sending audio over WebSocket
 
 
 @dataclass
@@ -150,6 +151,7 @@ class AudioCapture:
         # This guarantees that _rms_broadcast_loop and _transcription_loop
         # both see the SAME mic signal — no competing-stream signal split.
         self._rms_queue:    queue.Queue[float]         = queue.Queue(maxsize=50)
+        self._system_rms_queue: queue.Queue[float]     = queue.Queue(maxsize=50)
         self._running:      bool                       = False
         self._threads:      list[threading.Thread]     = []
 
@@ -401,6 +403,23 @@ class AudioCapture:
                 samples = self._to_float32(raw)
                 samples = self._resample(samples, device_rate, self.sample_rate)
 
+                # [SYSTEM DEBUG] Log every callback/read for system audio
+                if source == AudioSource.SYSTEM:
+                    frame_rms = float(np.sqrt(np.mean(samples.astype(np.float64) ** 2)))
+                    logger.info(
+                        "[SYSTEM DEBUG] callback fired, frames=%d  rms=%.6f  device=%s",
+                        len(samples), frame_rms, device_name,
+                    )
+                    # Fan out system RMS to its own queue for diagnostics.
+                    try:
+                        self._system_rms_queue.put_nowait(frame_rms)
+                    except queue.Full:
+                        try:
+                            self._system_rms_queue.get_nowait()
+                        except queue.Empty:
+                            pass
+                        self._system_rms_queue.put_nowait(frame_rms)
+
                 # Fan out per-frame RMS to the RMS queue — MIC ONLY.
                 # System audio must NOT write here; if it did, it would
                 # overwrite the mic signal and cause the UI meter and the
@@ -423,13 +442,27 @@ class AudioCapture:
                     chunk_data = buffer[:chunk_samples].copy()
                     buffer     = buffer[chunk_samples:]
 
+                    chunk_rms  = self._rms(chunk_data)
+                    chunk_peak = float(np.max(np.abs(chunk_data)))
+
                     audio_chunk = AudioChunk(
                         data=chunk_data,
                         source=source,
                         timestamp=chunk_start_time,
-                        rms=self._rms(chunk_data),
-                        peak_rms=float(np.max(np.abs(chunk_data))),
+                        rms=chunk_rms,
+                        peak_rms=chunk_peak,
                     )
+
+                    # [SYSTEM DEBUG] Log every system chunk with gate analysis
+                    if source == AudioSource.SYSTEM:
+                        _sys_gate_th = 0.0001  # system silence gate threshold
+                        logger.info(
+                            "[SYSTEM DEBUG] device=%s rms=%.6f peak=%.6f "
+                            "gate_threshold=%.6f result=%s",
+                            device_name, chunk_rms, chunk_peak,
+                            _sys_gate_th,
+                            "PASS" if chunk_peak >= _sys_gate_th else "FAIL",
+                        )
 
                     # Non-blocking put; drop oldest if queue is full
                     try:
@@ -599,6 +632,21 @@ class AudioCapture:
         try:
             while True:
                 rms = self._rms_queue.get_nowait()
+        except queue.Empty:
+            pass
+        return rms
+
+    def get_latest_system_rms(self) -> float:
+        """
+        Return the most recent system (loopback) per-frame RMS. Non-blocking.
+
+        Same drain-to-latest semantics as get_latest_rms() but reads from
+        the system-audio queue.  Returns 0.0 if no system audio is active.
+        """
+        rms = 0.0
+        try:
+            while True:
+                rms = self._system_rms_queue.get_nowait()
         except queue.Empty:
             pass
         return rms

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>MeetingMind — Guest Mic</title>
+  <style>
+    :root {
+      --mm-bg:           #F5F5F5;
+      --mm-surface:      #FFFFFF;
+      --mm-primary:      #00695C;
+      --mm-primary-mid:  #009688;
+      --mm-accent:       #E65100;
+      --mm-accent-hover: #EF6C00;
+      --mm-text:         #212121;
+      --mm-text-muted:   #757575;
+      --mm-border:       #E0E0E0;
+      --mm-ok:           #2E7D32;
+      --mm-notable:      #F57C00;
+      --mm-flag:         #C62828;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--mm-bg);
+      color: var(--mm-text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--mm-primary);
+      border-bottom: 1px solid var(--mm-primary);
+      padding: 0.9rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: #FFFFFF33;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .logo-text { font-size: 1rem; font-weight: 600; color: #FFFFFF; }
+    .logo-sub  { font-size: 0.72rem; color: #FFFFFFCC; margin-left: 0.2rem; }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.5rem;
+      gap: 1.5rem;
+    }
+
+    /* ── Join section ──────────────────────────────────────────────────────── */
+    #join-section {
+      background: var(--mm-surface);
+      border: 1px solid var(--mm-border);
+      border-radius: 14px;
+      padding: 2rem 1.75rem;
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    #join-section h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--mm-text);
+    }
+
+    #join-section p {
+      font-size: 0.82rem;
+      color: var(--mm-text-muted);
+      line-height: 1.5;
+    }
+
+    .pin-input {
+      width: 100%;
+      background: var(--mm-bg);
+      border: 1px solid var(--mm-border);
+      border-radius: 8px;
+      color: var(--mm-text);
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      padding: 0.7rem 1rem;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+
+    .pin-input:focus { border-color: var(--mm-primary-mid); }
+
+    .btn-primary {
+      width: 100%;
+      padding: 0.85rem;
+      background: var(--mm-accent);
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-primary:hover:not(:disabled) { background: var(--mm-accent-hover); }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Status section ────────────────────────────────────────────────────── */
+    #status-section {
+      background: var(--mm-surface);
+      border: 1px solid var(--mm-border);
+      border-radius: 14px;
+      padding: 2rem 1.75rem;
+      width: 100%;
+      max-width: 360px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.4rem;
+    }
+
+    .status-icon {
+      font-size: 3rem;
+      line-height: 1;
+    }
+
+    .status-text {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--mm-text);
+      text-align: center;
+    }
+
+    .status-sub {
+      font-size: 0.78rem;
+      color: var(--mm-text-muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .status-dot-inline {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .dot-connecting { background: #f59e0b; animation: pulse 1.4s ease-in-out infinite; }
+    .dot-connected  { background: #22c55e; box-shadow: 0 0 8px #22c55e88; }
+    .dot-error      { background: #ef4444; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.35; }
+    }
+
+    .privacy-note {
+      font-size: 0.72rem;
+      color: var(--mm-text-muted);
+      text-align: center;
+      line-height: 1.5;
+      border-top: 1px solid var(--mm-border);
+      padding-top: 1rem;
+      width: 100%;
+    }
+
+    .btn-leave {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--mm-surface);
+      color: #ef4444;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: 1px solid #ef444433;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .btn-leave:hover { background: #FFEBEE; border-color: #ef4444; }
+
+    .error-msg {
+      width: 100%;
+      max-width: 360px;
+      background: #FFEBEE;
+      border: 1px solid var(--mm-flag);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.82rem;
+      color: var(--mm-flag);
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">🧠</div>
+  <span class="logo-text">MeetingMind</span>
+  <span class="logo-sub">— Guest Mic</span>
+</header>
+
+<main>
+
+  <!-- ── Error message ───────────────────────────────────────────────────── -->
+  <div class="error-msg" id="error-msg"></div>
+
+  <!-- ── Join section ────────────────────────────────────────────────────── -->
+  <div id="join-section">
+    <h2>Join as Guest Mic</h2>
+    <p>Enter the 4-digit PIN shown on the host's screen to join the meeting as a remote microphone.</p>
+    <input
+      class="pin-input"
+      id="pin-input"
+      type="tel"
+      inputmode="numeric"
+      maxlength="4"
+      pattern="[0-9]*"
+      placeholder="0000"
+      autocomplete="off"
+    />
+    <button class="btn-primary" id="btn-join" onclick="joinMeeting()">Join Meeting</button>
+  </div>
+
+  <!-- ── Status section ──────────────────────────────────────────────────── -->
+  <div id="status-section">
+    <div class="status-icon" id="status-icon">◌</div>
+    <div class="status-text" id="status-text">Connecting…</div>
+    <div class="status-sub" id="status-sub">Please wait while we connect to the meeting.</div>
+    <div class="privacy-note">
+      🔒 Your audio is processed entirely on the host's device.<br>
+      No audio is stored or sent to any external server.
+    </div>
+    <button class="btn-leave" id="btn-leave" onclick="leaveMeeting()">Leave Meeting</button>
+  </div>
+
+</main>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let ws             = null;
+  let audioCtx       = null;
+  let mediaStream    = null;
+  let scriptNode     = null;
+  let sampleAccum    = [];   // Float32 sample accumulator
+  const CHUNK_SAMPLES = 48_000;  // 3 s at 16 kHz
+
+  // Auto-fill PIN from ?pin= URL param
+  const urlParams = new URLSearchParams(window.location.search);
+  const pinFromUrl = urlParams.get('pin');
+  if (pinFromUrl) {
+    document.getElementById('pin-input').value = pinFromUrl;
+  }
+
+  // ── UI helpers ─────────────────────────────────────────────────────────────
+  function showJoin()   { document.getElementById('join-section').style.display   = 'flex';   }
+  function hideJoin()   { document.getElementById('join-section').style.display   = 'none';   }
+  function showStatus() { document.getElementById('status-section').style.display = 'flex';   }
+  function hideStatus() { document.getElementById('status-section').style.display = 'none';   }
+
+  function setStatus(state, text, sub) {
+    const icon    = document.getElementById('status-icon');
+    const textEl  = document.getElementById('status-text');
+    const subEl   = document.getElementById('status-sub');
+    if (state === 'connecting') {
+      icon.textContent  = '◌';
+      icon.style.color  = '#f59e0b';
+    } else if (state === 'connected') {
+      icon.textContent  = '●';
+      icon.style.color  = '#22c55e';
+    } else {
+      icon.textContent  = '✕';
+      icon.style.color  = '#ef4444';
+    }
+    if (text) textEl.textContent = text;
+    if (sub)  subEl.textContent  = sub;
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function clearError() {
+    const el = document.getElementById('error-msg');
+    el.style.display = 'none';
+    el.textContent = '';
+  }
+
+  // ── Audio setup ────────────────────────────────────────────────────────────
+  async function startAudio() {
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch (err) {
+      showError('Microphone access denied. Please allow mic access and try again.');
+      throw err;
+    }
+
+    // AudioContext: request 16 kHz so the browser resamples natively.
+    // iOS Safari may ignore the sampleRate hint — we handle that below.
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContextClass({ sampleRate: 16_000 });
+
+    const source = audioCtx.createMediaStreamSource(mediaStream);
+
+    // ScriptProcessor is deprecated but still the most iOS-Safari-compatible option.
+    // AudioWorklet is unreliable on older iOS.
+    scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+
+    scriptNode.onaudioprocess = (e) => {
+      const frame = e.inputBuffer.getChannelData(0);
+      // getChannelData returns a live view — copy before accumulating.
+      sampleAccum.push(...Array.from(frame));
+
+      while (sampleAccum.length >= CHUNK_SAMPLES) {
+        const slice = new Float32Array(sampleAccum.splice(0, CHUNK_SAMPLES));
+        sendChunk(slice);
+      }
+    };
+
+    source.connect(scriptNode);
+    scriptNode.connect(audioCtx.destination);
+  }
+
+  // ── Encode & send ──────────────────────────────────────────────────────────
+  function float32ToBase64(f32arr) {
+    // Convert Float32Array buffer → Uint8Array → base64 string.
+    const bytes = new Uint8Array(f32arr.buffer);
+    let binary  = '';
+    const len   = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  function sendChunk(f32arr) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const b64 = float32ToBase64(f32arr);
+    ws.send(JSON.stringify({
+      type:        'guest_audio',
+      data:        b64,
+      sample_rate: audioCtx ? audioCtx.sampleRate : 16_000,
+    }));
+  }
+
+  // ── WebSocket ──────────────────────────────────────────────────────────────
+  function buildWsUrl(pin) {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    return `${proto}://${location.host}/ws/guest?pin=${encodeURIComponent(pin)}`;
+  }
+
+  async function joinMeeting() {
+    clearError();
+    const pin = document.getElementById('pin-input').value.trim();
+    if (!/^\d{4}$/.test(pin)) {
+      showError('Please enter the 4-digit PIN from the host.');
+      return;
+    }
+
+    document.getElementById('btn-join').disabled = true;
+
+    hideJoin();
+    showStatus();
+    setStatus('connecting', 'Connecting…', 'Establishing secure connection to the meeting.');
+
+    try {
+      await startAudio();
+    } catch (_) {
+      showJoin();
+      hideStatus();
+      document.getElementById('btn-join').disabled = false;
+      return;
+    }
+
+    ws = new WebSocket(buildWsUrl(pin));
+
+    ws.onopen = () => {
+      // Wait for server 'connected' status message before showing live state.
+    };
+
+    ws.onmessage = (evt) => {
+      let msg;
+      try { msg = JSON.parse(evt.data); } catch (_) { return; }
+
+      if (msg.type === 'status' && msg.status === 'connected') {
+        setStatus('connected', '● Live', 'Your microphone is active. Speak normally.');
+      } else if (msg.type === 'error') {
+        showError(`Server: ${msg.message}`);
+      }
+    };
+
+    ws.onclose = (evt) => {
+      cleanup();
+      let reason = 'Connection closed.';
+      if      (evt.code === 4000) reason = 'The meeting has ended or not yet started.';
+      else if (evt.code === 4001) reason = 'Invalid PIN. Please check with the host.';
+      else if (evt.code === 4002) reason = 'Another guest is already connected.';
+      setStatus('error', 'Disconnected', reason);
+    };
+
+    ws.onerror = () => {
+      // onclose fires right after — it handles the UI.
+    };
+  }
+
+  function leaveMeeting() {
+    cleanup();
+    hideStatus();
+    showJoin();
+    document.getElementById('btn-join').disabled = false;
+    clearError();
+    setStatus('connecting', 'Connecting…', '');  // reset for next join
+  }
+
+  function cleanup() {
+    if (scriptNode) {
+      try { scriptNode.disconnect(); } catch (_) {}
+      scriptNode = null;
+    }
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = null;
+    }
+    if (audioCtx) {
+      try { audioCtx.close(); } catch (_) {}
+      audioCtx = null;
+    }
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.close();
+    }
+    ws = null;
+    sampleAccum = [];
+  }
+</script>
+
+</body>
+</html>

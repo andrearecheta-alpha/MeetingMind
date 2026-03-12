@@ -85,7 +85,7 @@ def _build_parser() -> argparse.ArgumentParser:
     t.add_argument(
         "--model",
         default="base",
-        choices=["tiny", "base", "small", "medium", "large"],
+        choices=["tiny", "tiny.en", "base", "small", "medium", "large"],
         metavar="SIZE",
         help=(
             "Whisper model size — larger models are more accurate but slower.\n"
